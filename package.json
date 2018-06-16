@@ -1,0 +1,47 @@
+{
+  "name": "canvas-sketch-cli",
+  "version": "1.0.0",
+  "description": "A CLI used alongside canvas-sketch",
+  "main": "./cli/index.js",
+  "bin": {
+    "canvas-sketch": "./cli.index.js"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Matt DesLauriers",
+    "email": "dave.des@gmail.com",
+    "url": "https://github.com/mattdesl"
+  },
+  "dependencies": {
+    "budo": "^11.2.2",
+    "chalk": "^2.4.1",
+    "dateformat": "^3.0.3",
+    "filenamify": "^2.1.0",
+    "glslify": "^6.1.1",
+    "minimist": "^1.2.0",
+    "mkdirp": "^0.5.1",
+    "pify": "^3.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "canvas",
+    "generative",
+    "art",
+    "sketch",
+    "sketching",
+    "webgl",
+    "glsl",
+    "2d"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mattdesl/canvas-sketch-cli.git"
+  },
+  "homepage": "https://github.com/mattdesl/canvas-sketch-cli",
+  "bugs": {
+    "url": "https://github.com/mattdesl/canvas-sketch-cli/issues"
+  }
+}
