@@ -6,8 +6,7 @@ const settings = {
 
 const sketch = () => {
   return ({ context, width, height }) => {
-    // Draw background
-    context.fillStyle = 'pink';
+    context.fillStyle = 'white';
     context.fillRect(0, 0, width, height);
   };
 };

@@ -8,16 +8,20 @@ const mkdirp = pify(require('mkdirp'));
 const dateformat = require('dateformat');
 const commit = require('./commit');
 const filenamify = require('filenamify');
+const install = require('./install');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
   alias: {
+    dir: 'd',
     open: 'o',
+    install: 'I',
     template: 't',
     new: 'n'
   },
-  boolean: [ 'open' ],
+  boolean: [ 'open', 'install' ],
   default: {
+    install: true,
     template: 'default'
   }
 });
@@ -35,7 +39,7 @@ const generateFileName = (suffix = '') => {
 
 const start = async () => {
   const cwd = process.cwd();
-  const staticDir = argv.dir || (fs.existsSync('public') ? 'public/' : undefined);
+  const staticDir = argv.dir;
 
   let entry = argv._[0];
   if (argv.new) {
@@ -54,15 +58,27 @@ const start = async () => {
       throw new Error(`Couldn't find a template by the key ${argv.template}`);
     }
 
-    console.log(chalk.cyan(`\n  → Writing file ${chalk.bold(path.relative(cwd, filepath))}\n`));
+    const bullet = chalk.bold(chalk.green('\n  → '));
+    console.log((`${bullet}Writing file: ${chalk.bold(path.relative(cwd, filepath))}`));
     fs.writeFileSync(filepath, template);
     entry = filepath;
+
+    // Install dependencies from the template if needed
+    if (argv.install !== false) {
+      await install(template, { bullet });
+    }
   }
 
-  if (!entry) throw new Error(`No entry file specified!`);
+  if (!entry) {
+    const msg = chalk.red(`No entry file specified!`);
+    const examples = `Example usage:\n    canvas-sketch src/index.js\n    canvas-sketch --new --template=regl`;
+    console.log(`\n  ${msg}\n\n  ${examples}\n`)
+    process.exit(1);
+  }
+
   budo(entry, {
     browserify: {
-      transform: [ 'glslify' ]
+      transform: [ require.resolve('glslify') ]
     },
     open: argv.open,
     serve: 'bundle.js',

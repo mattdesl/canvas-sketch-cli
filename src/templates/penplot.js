@@ -1,4 +1,6 @@
 const canvasSketch = require('canvas-sketch');
+
+// TODO! put penplot utils on npm
 const polylinesToSVG = () => `<svg></svg>`;
 
 const settings = {
@@ -31,7 +33,7 @@ const sketch = ({ width, height }) => {
   }
 
   return ({ context }) => {
-    // Draw background
+    // Fill background
     context.fillStyle = 'white';
     context.fillRect(0, 0, width, height);
 
