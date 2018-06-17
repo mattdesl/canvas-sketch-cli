@@ -10,6 +10,7 @@ const commit = require('./commit');
 const filenamify = require('filenamify');
 const install = require('./install');
 const resolve = require('resolve');
+const { createLogger, getErrorDetails } = require('./logger');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
@@ -38,11 +39,9 @@ const generateFileName = (suffix = '') => {
   return filenamify(file);
 };
 
-
-
 const start = async () => {
+  const logger = createLogger(argv);
   const cwd = process.cwd();
-  const bullet = chalk.bold(chalk.green('\n  → '));
   const staticDir = argv.dir;
 
   let entry = argv._[0];
@@ -63,16 +62,14 @@ const start = async () => {
       throw new Error(`Couldn't find a template by the key ${argv.template}`);
     }
 
-    console.log((`${bullet}Writing file: ${chalk.bold(path.relative(cwd, filepath))}`));
+    logger.log(`Writing file: ${chalk.bold(path.relative(cwd, filepath))}`);
     fs.writeFileSync(filepath, template);
     entry = filepath;
     entrySrc = template;
   }
 
   if (!entry) {
-    const msg = chalk.red(`No entry file specified!`);
-    const examples = `Example usage:\n    canvas-sketch src/index.js\n    canvas-sketch --new --template=regl`;
-    console.log(`\n  ${msg}\n\n  ${examples}\n`)
+    logger.error('No entry file specified!', `Example usage:\n    canvas-sketch src/index.js\n    canvas-sketch --new --template=regl`);
     process.exit(1);
   }
 
@@ -83,27 +80,28 @@ const start = async () => {
       const entryPath = /^[.\//]/.test(entry) ? entry : ('./' + entry);
       entryFile = resolve.sync(entryPath, { basedir: cwd });
     } catch (err) {
-      const msg = chalk.red(`Cannot find file: ${chalk.bold(entry)}`);
-      console.log(`\n  ${msg}`);
+      logger.error(`Cannot find file "${chalk.bold(entry)}"`);
       process.exit(1);
     }
 
     try {
       entrySrc = fs.readFileSync(entryFile, 'utf-8');
     } catch (err) {
-      const msg = chalk.red(`Cannot read entry file: ${chalk.bold(path.relative(cwd, entryFile))}`);
-      console.log(`\n  ${msg}`);
+      logger.error(`Cannot read entry file "${chalk.bold(path.relative(cwd, entryFile))}"`, err);
       process.exit(1);
     }
   }
 
   // Install dependencies from the template if needed
   if (argv.install !== false) {
-    await install(entrySrc, { bullet, cwd });
+    await install(entrySrc, { logger, cwd, ignore: [ 'glslify' ] });
   }
 
   budo(entry, {
     browserify: {
+      // resolve glslify requires to here
+      plugin: [ require('./plugin-resolve') ],
+      // setup by default with glslify
       transform: [ require.resolve('glslify') ]
     },
     open: argv.open,
@@ -115,7 +113,7 @@ const start = async () => {
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify(result));
         }).catch(err => {
-          console.error(err);
+          logger.error('Could not commit changes', err);
           res.statusCode = 500;
           res.setHeader('Content-Type', 'text/plain');
           res.end(err.message);
@@ -133,7 +131,7 @@ const start = async () => {
       return fs.createReadStream(path.resolve(__dirname, 'templates/index.html'));
     },
     dir: staticDir,
-    stream: process.stdout
+    stream: argv.quiet ? null : process.stdout
   }).on('connect', ev => {
     ev.webSocketServer.on('connection', client => {
       client.on('message', ev => {
@@ -146,11 +144,6 @@ const start = async () => {
 
 start()
   .catch(err => {
-    const msg = err.stack;
-    const lines = msg.split('\n');
-    let endIdx = lines.findIndex(line => line.trim().startsWith('at '));
-    if (endIdx === -1 || endIdx === 0) endIdx = 1;
-    const redLines = chalk.red(lines.slice(0, endIdx).join('\n'));
-    const otherLines = lines.slice(endIdx).join('\n');
-    console.error([ '', redLines, otherLines, '' ].join('\n'));
+    const { message, stack } = getErrorDetails(err);
+    console.error([ '', chalk.red(message), stack, '' ].join('\n'));
   });

@@ -11,10 +11,10 @@ const fs = require('fs');
 const execAsync = pify(exec);
 
 const writePackageIfNeeded = async (opt = {}) => {
-  const bullet = opt.bullet || '';
+  const logger = opt.logger;
   const cwd = opt.cwd || process.cwd();
   if (fs.existsSync(path.resolve(cwd, 'package.json'))) return;
-  console.log((`${bullet}Generating default ${chalk.bold('package.json')}`));
+  if (logger) logger.log(`Generating default "${chalk.bold('package.json')}" file`);
   const { stdout, stderr } = await execAsync('npm init -y');
   if (stdout) console.log(stdout);
   if (stderr) console.error(stderr);
@@ -22,10 +22,11 @@ const writePackageIfNeeded = async (opt = {}) => {
 
 // Install npm modules from a sketch template
 module.exports = async function (src, opt = {}) {
-  const bullet = opt.bullet || '';
+  const logger = opt.logger;
+  const ignore = [].concat(opt.ignore).filter(Boolean);
   let requires = konan(src).strings;
   const dependencies = requires
-    .filter(req => !/^[./\\]/.test(req))
+    .filter(req => !/^[./\\]/.test(req) && !ignore.includes(req))
     .map(req => packageName(req))
     .filter(req => !isBuiltin(req))
     .filter((item, i, list) => list.indexOf(item) === i);
@@ -37,6 +38,9 @@ module.exports = async function (src, opt = {}) {
   await writePackageIfNeeded(opt);
 
   // now install
-  console.log(`${bullet}Preparing dependencies: ${chalk.bold(dependencies.join(', '))}\n`);
+  if (logger) {
+    logger.log(`Preparing dependencies:\n  ${chalk.bold(dependencies.join(', '))}`);
+    logger.log();
+  }
   return installIfNeeded({ dependencies, stdio: 'inherit' });
 };
