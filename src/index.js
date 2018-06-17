@@ -38,9 +38,11 @@ const generateFileName = (suffix = '') => {
   return filenamify(file);
 };
 
+
+
 const start = async () => {
-  const bullet = chalk.bold(chalk.green('\n  → '));
   const cwd = process.cwd();
+  const bullet = chalk.bold(chalk.green('\n  → '));
   const staticDir = argv.dir;
 
   let entry = argv._[0];
@@ -76,11 +78,9 @@ const start = async () => {
 
   // Read source code
   if (!entrySrc) {
-    console.log('resolving', entry);
     let entryFile;
     try {
       const entryPath = /^[.\//]/.test(entry) ? entry : ('./' + entry);
-      console.log(entryPath)
       entryFile = resolve.sync(entryPath, { basedir: cwd });
     } catch (err) {
       const msg = chalk.red(`Cannot find file: ${chalk.bold(entry)}`);
@@ -99,7 +99,7 @@ const start = async () => {
 
   // Install dependencies from the template if needed
   if (argv.install !== false) {
-    await install(entrySrc, { bullet });
+    await install(entrySrc, { bullet, cwd });
   }
 
   budo(entry, {
