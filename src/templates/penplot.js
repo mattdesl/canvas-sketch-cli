@@ -44,8 +44,11 @@ const sketch = ({ width, height }) => {
       context.stroke();
     });
 
-    // Render SVG
-    return [ context.canvas, { data: polylinesToSVG(lines, settings), extension: '.svg' } ];
+    // Render Canvas + SVG files
+    return [
+      context.canvas,
+      { data: polylinesToSVG(lines, settings), extension: '.svg' }
+    ];
   };
 };
 

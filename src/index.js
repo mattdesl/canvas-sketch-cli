@@ -9,6 +9,7 @@ const dateformat = require('dateformat');
 const commit = require('./commit');
 const filenamify = require('filenamify');
 const install = require('./install');
+const resolve = require('resolve');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
@@ -38,10 +39,12 @@ const generateFileName = (suffix = '') => {
 };
 
 const start = async () => {
+  const bullet = chalk.bold(chalk.green('\n  → '));
   const cwd = process.cwd();
   const staticDir = argv.dir;
 
   let entry = argv._[0];
+  let entrySrc;
   if (argv.new) {
     const suffix = typeof argv.new === 'string' ? argv.new : undefined;
     const file = generateFileName(suffix);
@@ -58,15 +61,10 @@ const start = async () => {
       throw new Error(`Couldn't find a template by the key ${argv.template}`);
     }
 
-    const bullet = chalk.bold(chalk.green('\n  → '));
     console.log((`${bullet}Writing file: ${chalk.bold(path.relative(cwd, filepath))}`));
     fs.writeFileSync(filepath, template);
     entry = filepath;
-
-    // Install dependencies from the template if needed
-    if (argv.install !== false) {
-      await install(template, { bullet });
-    }
+    entrySrc = template;
   }
 
   if (!entry) {
@@ -74,6 +72,34 @@ const start = async () => {
     const examples = `Example usage:\n    canvas-sketch src/index.js\n    canvas-sketch --new --template=regl`;
     console.log(`\n  ${msg}\n\n  ${examples}\n`)
     process.exit(1);
+  }
+
+  // Read source code
+  if (!entrySrc) {
+    console.log('resolving', entry);
+    let entryFile;
+    try {
+      const entryPath = /^[.\//]/.test(entry) ? entry : ('./' + entry);
+      console.log(entryPath)
+      entryFile = resolve.sync(entryPath, { basedir: cwd });
+    } catch (err) {
+      const msg = chalk.red(`Cannot find file: ${chalk.bold(entry)}`);
+      console.log(`\n  ${msg}`);
+      process.exit(1);
+    }
+
+    try {
+      entrySrc = fs.readFileSync(entryFile, 'utf-8');
+    } catch (err) {
+      const msg = chalk.red(`Cannot read entry file: ${chalk.bold(path.relative(cwd, entryFile))}`);
+      console.log(`\n  ${msg}`);
+      process.exit(1);
+    }
+  }
+
+  // Install dependencies from the template if needed
+  if (argv.install !== false) {
+    await install(entrySrc, { bullet });
   }
 
   budo(entry, {
