@@ -13,7 +13,7 @@
     "url": "https://github.com/mattdesl"
   },
   "dependencies": {
-    "budo": "^11.2.2",
+    "budo": "^11.3.0",
     "busboy": "^0.2.14",
     "canvas-sketch": "0.0.2",
     "chalk": "^2.4.1",

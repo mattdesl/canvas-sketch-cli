@@ -109,16 +109,19 @@ const start = async () => {
   logger.pad();
 
   let output = typeof argv.output !== 'undefined' ? argv.output : true;
-  if (/^(true|false)$/.test(output)) {
+  if (typeof output === 'string' && /^(true|false)$/.test(output)) {
     // handle string argv parsing
     output = output === 'true';
   }
-  if (output === true) {
+  if (output == null || output === true) {
+    // Default to downloads
     output = downloads();
   } else if (output === '.') {
+    // Accept '.' as current dir
     output = cwd;
   }
 
+  const clientMiddleware = createMiddleware(Object.assign({}, argv, { output, cwd, logger }));
   budo(entry, {
     browserify: {
       // resolve glslify requires to here
@@ -128,9 +131,8 @@ const start = async () => {
     },
     open: argv.open,
     serve: 'bundle.js',
-    middleware: [
-      createMiddleware(Object.assign({}, argv, { output, cwd, logger }))
-    ],
+    middleware: clientMiddleware.middleware,
+    ignoreLog: clientMiddleware.ignoreLog,
     live: {
       cache: false,
       debug: true,

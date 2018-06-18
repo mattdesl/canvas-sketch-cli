@@ -20,54 +20,58 @@ module.exports = (opt = {}) => {
     res.end(JSON.stringify({ error: err.message }));
   };
 
-  return (req, res, next) => {
-    const post = /post/i.test(req.method);
-    if (post && req.url === '/canvas-sketch-cli/saveBlob') {
-      if (!output) {
-        return sendError(res, `Error trying to saveBlob, the --output flag has been disabled`);
-      }
+  return {
+    // Ignore these in budo to avoid console spam, especially with animation export
+    ignoreLog: [ '/canvas-sketch-cli/saveBlob', '/canvas-sketch-cli/commit' ],
+    middleware: (req, res, next) => {
+      const post = /post/i.test(req.method);
+      if (post && req.url === '/canvas-sketch-cli/saveBlob') {
+        if (!output) {
+          return sendError(res, `Error trying to saveBlob, the --output flag has been disabled`);
+        }
 
-      var busboy;
-      try {
-        busboy = new Busboy({ headers: req.headers });
-      } catch (err) {
-        // Invalid headers in request
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/text');
-        res.end(err.message);
-        return;
-      }
+        var busboy;
+        try {
+          busboy = new Busboy({ headers: req.headers });
+        } catch (err) {
+          // Invalid headers in request
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/text');
+          res.end(err.message);
+          return;
+        }
 
-      let filePath, fileName;
-      busboy.on('file', (field, file, name) => {
-        mkdirp(output, err => {
-          if (err) return sendError(res, err);
-          fileName = path.basename(name);
-          filePath = path.join(output, fileName);
-          const writer = fs.createWriteStream(filePath);
-          file.pipe(writer).on('error', err => sendError(res, err));
+        let filePath, fileName;
+        busboy.on('file', (field, file, name) => {
+          mkdirp(output, err => {
+            if (err) return sendError(res, err);
+            fileName = path.basename(name);
+            filePath = path.join(output, fileName);
+            const writer = fs.createWriteStream(filePath);
+            file.pipe(writer).on('error', err => sendError(res, err));
+          });
         });
-      });
-      busboy.on('finish', () => {
+        busboy.on('finish', () => {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({
+            filename: fileName,
+            outputName: path.basename(output),
+            client: true
+          }));
+        });
+        req.pipe(busboy);
+      } else if (post && req.url === '/canvas-sketch-cli/commit') {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          filename: fileName,
-          outputName: path.basename(output),
-          client: true
-        }));
-      });
-      req.pipe(busboy);
-    } else if (post && req.url === '/canvas-sketch-cli/commit') {
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      commit({ logger, quiet }).then(result => {
-        res.end(JSON.stringify(result));
-      }).catch(err => {
-        sendError(res, err);
-      });
-    } else {
-      next(null);
+        commit({ logger, quiet }).then(result => {
+          res.end(JSON.stringify(result));
+        }).catch(err => {
+          sendError(res, err);
+        });
+      } else {
+        next(null);
+      }
     }
   };
 };
