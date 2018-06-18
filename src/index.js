@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 const path = require('path');
 const budo = require('budo');
+const downloads = require('downloads-folder');
 const getStdin = require('get-stdin');
 const fs = require('fs');
 const chalk = require('chalk');
 const pify = require('pify');
 const mkdirp = pify(require('mkdirp'));
 const dateformat = require('dateformat');
-const commit = require('./commit');
 const filenamify = require('filenamify');
 const install = require('./install');
 const resolve = require('resolve');
+const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
 
 const argv = require('minimist')(process.argv.slice(2), {
@@ -107,6 +108,17 @@ const start = async () => {
   // pad the previous logs if necessary
   logger.pad();
 
+  let output = typeof argv.output !== 'undefined' ? argv.output : true;
+  if (/^(true|false)$/.test(output)) {
+    // handle string argv parsing
+    output = output === 'true';
+  }
+  if (output === true) {
+    output = downloads();
+  } else if (output === '.') {
+    output = cwd;
+  }
+
   budo(entry, {
     browserify: {
       // resolve glslify requires to here
@@ -116,38 +128,24 @@ const start = async () => {
     },
     open: argv.open,
     serve: 'bundle.js',
-    middleware: (req, res, next) => {
-      if (req.url === '/canvas-sketch-client/commit-hash') {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        commit({ logger, quiet: argv.quiet }).then(result => {
-          res.end(JSON.stringify(result));
-        }).catch(err => {
-          logger.error(err);
-          logger.pad();
-          res.end(JSON.stringify({ error: err.message }));
-        });
-      } else {
-        next(null);
-      }
-    },
+    middleware: [
+      createMiddleware(Object.assign({}, argv, { output, cwd, logger }))
+    ],
     live: {
       cache: false,
       debug: true,
-      include: require.resolve('./client.js')
+      include: [
+        // Could find a cleaner way to pass down props
+        // to client scripts...
+        output ? require.resolve('./client-enable-output.js') : undefined,
+        require.resolve('./client.js')
+      ].filter(Boolean)
     },
     defaultIndex: (opt, req) => {
       return fs.createReadStream(path.resolve(__dirname, 'templates/index.html'));
     },
     dir: staticDir,
     stream: argv.quiet ? null : process.stdout
-  }).on('connect', ev => {
-    ev.webSocketServer.on('connection', client => {
-      client.on('message', ev => {
-        const data = JSON.parse(ev);
-        if (data.event === 'commit') commit();
-      });
-    });
   });
 };
 

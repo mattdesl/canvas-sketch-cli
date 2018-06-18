@@ -14,10 +14,12 @@
   },
   "dependencies": {
     "budo": "^11.2.2",
+    "busboy": "^0.2.14",
     "canvas-sketch": "0.0.2",
     "chalk": "^2.4.1",
     "cli-format": "^3.0.9",
     "dateformat": "^3.0.3",
+    "downloads-folder": "^1.0.1",
     "filenamify": "^2.1.0",
     "get-stdin": "^6.0.0",
     "glslify": "^6.1.1",
