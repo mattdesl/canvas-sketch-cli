@@ -19,6 +19,7 @@
     "cli-format": "^3.0.9",
     "dateformat": "^3.0.3",
     "filenamify": "^2.1.0",
+    "get-stdin": "^6.0.0",
     "glslify": "^6.1.1",
     "install-if-needed": "^1.0.3",
     "is-builtin-module": "^2.0.0",

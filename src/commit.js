@@ -1,16 +1,24 @@
 const dateformat = require('dateformat');
 const { exec } = require('child_process');
-const chalk = require('chalk');
 
-module.exports = function (opt = {}) {
+module.exports = async function (opt = {}) {
+  const logger = opt.logger;
   return execify('git status --porcelain')
+    .catch(err => {
+      if (err.message.includes('Not a git repository')) {
+        const err = new Error(`Can't commit changes because the working directory is not a git repository`);
+        err.hideStack = true;
+        throw err;
+      }
+      throw err;
+    })
     .then(result => {
       result = result.trim();
       if (result) {
         return doCommit(opt).then(() => ({ changed: true }));
       } else {
         if (!opt.quiet) {
-          console.log(chalk.magenta('Nothing new to commit.'));
+          logger.log('Nothing new to commit.');
         }
         return { changed: false };
       }
@@ -35,9 +43,10 @@ function doCommit (opt) {
   const msg = generateCommitMessage();
   return execify(`git add . && git commit -m "${msg}"`)
     .then(result => {
-      if (!opt.quiet) {
-        console.log(chalk.magenta('Committing latest changes...\n') + result);
+      if (opt.logger) {
+        opt.logger.log('Committing latest changes...\n');
       }
+      if (!opt.quiet) console.log(result);
     });
 }
 

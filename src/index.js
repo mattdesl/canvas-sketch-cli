@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const path = require('path');
 const budo = require('budo');
+const getStdin = require('get-stdin');
 const fs = require('fs');
 const chalk = require('chalk');
 const pify = require('pify');
@@ -21,7 +22,7 @@ const argv = require('minimist')(process.argv.slice(2), {
     template: 't',
     new: 'n'
   },
-  boolean: [ 'open', 'install' ],
+  boolean: [ 'open', 'install', 'quiet' ],
   default: {
     install: true,
     template: 'default'
@@ -55,17 +56,23 @@ const start = async () => {
     if (fs.existsSync(filepath)) {
       throw new Error(`The file already exists: ${path.relative(cwd, filepath)}`);
     }
-    let template;
-    try {
-      template = fs.readFileSync(path.resolve(__dirname, templateDirectory, `${argv.template}.js`), 'utf-8');
-    } catch (err) {
-      throw new Error(`Couldn't find a template by the key ${argv.template}`);
+
+    // Get stdin for piping
+    const stdin = (await getStdin()).trim();
+    if (stdin && (!argv.template || argv.template === 'default')) {
+      // Allow the user to pass in piped code
+      entrySrc = stdin;
+    } else {
+      try {
+        entrySrc = fs.readFileSync(path.resolve(__dirname, templateDirectory, `${argv.template}.js`), 'utf-8');
+      } catch (err) {
+        throw new Error(`Couldn't find a template by the key ${argv.template}`);
+      }
     }
 
     logger.log(`Writing file: ${chalk.bold(path.relative(cwd, filepath))}`);
-    fs.writeFileSync(filepath, template);
+    fs.writeFileSync(filepath, entrySrc);
     entry = filepath;
-    entrySrc = template;
   }
 
   if (!entry) {
@@ -97,6 +104,9 @@ const start = async () => {
     await install(entrySrc, { logger, cwd, ignore: [ 'glslify' ] });
   }
 
+  // pad the previous logs if necessary
+  logger.pad();
+
   budo(entry, {
     browserify: {
       // resolve glslify requires to here
@@ -108,15 +118,14 @@ const start = async () => {
     serve: 'bundle.js',
     middleware: (req, res, next) => {
       if (req.url === '/canvas-sketch-client/commit-hash') {
-        commit().then(result => {
-          res.statusCode = 200;
-          res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        commit({ logger, quiet: argv.quiet }).then(result => {
           res.end(JSON.stringify(result));
         }).catch(err => {
-          logger.error('Could not commit changes', err);
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'text/plain');
-          res.end(err.message);
+          logger.error(err);
+          logger.pad();
+          res.end(JSON.stringify({ error: err.message }));
         });
       } else {
         next(null);

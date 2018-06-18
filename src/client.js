@@ -5,6 +5,14 @@ window['canvas-sketch-cli'] = {
     return window.fetch('/canvas-sketch-client/commit-hash')
       .then(resp => resp.json())
       .then(result => {
+        if (result.error) {
+          if (result.error.includes('not a git repository')) {
+            console.warn(`Warning: ${result.error}`);
+            return null;
+          } else {
+            throw new Error(result.error);
+          }
+        }
         // Notify user of changes
         console.log(result.changed
           ? `[git] ${result.hash} Committed changes`
@@ -13,7 +21,7 @@ window['canvas-sketch-cli'] = {
       })
       .catch(err => {
         // Some issue, just bail out and return nil hash
-        console.warning('Could not fetch commit hash');
+        console.warn('Could not commit changes and fetch hash');
         console.error(err);
         return undefined;
       });
