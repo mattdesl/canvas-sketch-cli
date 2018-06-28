@@ -23,6 +23,7 @@ const argv = require('minimist')(process.argv.slice(2), {
     template: 't',
     new: 'n'
   },
+  '--': true,
   boolean: [ 'open', 'install', 'quiet' ],
   default: {
     install: true,
@@ -47,6 +48,14 @@ const start = async () => {
   const staticDir = argv.dir;
 
   let entry = argv._[0];
+  delete argv._;
+  const browserifyArgs = argv['--'] || [];
+  delete argv['--'];
+
+  // Add in glslify by default
+  browserifyArgs.unshift('-p', require.resolve('./plugin-resolve'));
+  browserifyArgs.unshift('-t', require.resolve('glslify'));
+
   let entrySrc;
   if (argv.new) {
     const suffix = typeof argv.new === 'string' ? argv.new : undefined;
@@ -121,16 +130,12 @@ const start = async () => {
     output = cwd;
   }
 
+  const serve = argv.serve || argv.js || 'bundle.js';
   const clientMiddleware = createMiddleware(Object.assign({}, argv, { output, cwd, logger }));
   budo(entry, {
-    browserify: {
-      // resolve glslify requires to here
-      plugin: [ require('./plugin-resolve') ],
-      // setup by default with glslify
-      transform: [ require.resolve('glslify') ]
-    },
+    browserifyArgs,
     open: argv.open,
-    serve: 'bundle.js',
+    serve,
     middleware: clientMiddleware.middleware,
     ignoreLog: clientMiddleware.ignoreLog,
     live: {
