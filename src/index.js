@@ -5,18 +5,23 @@ const downloads = require('downloads-folder');
 const getStdin = require('get-stdin');
 const fs = require('fs');
 const chalk = require('chalk');
-const pify = require('pify');
-const mkdirp = pify(require('mkdirp'));
+const { promisify } = require('util');
+const mkdirp = promisify(require('mkdirp'));
 const dateformat = require('dateformat');
 const filenamify = require('filenamify');
 const install = require('./install');
 const resolve = require('resolve');
+const browserifyFromArgs = require('browserify/bin/args');
 const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
+const defined = require('defined');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
+  boolean: [ 'open', 'install', 'quiet', 'build', 'forceDefaultIndex' ],
   alias: {
+    forceDefaultIndex: 'force-default-index',
+    build: 'b',
     dir: 'd',
     open: 'o',
     install: 'I',
@@ -24,7 +29,6 @@ const argv = require('minimist')(process.argv.slice(2), {
     new: 'n'
   },
   '--': true,
-  boolean: [ 'open', 'install', 'quiet' ],
   default: {
     install: true,
     template: 'default'
@@ -42,10 +46,18 @@ const generateFileName = (suffix = '') => {
   return filenamify(file);
 };
 
+const bundleAsync = (bundler) => {
+  return new Promise((resolve, reject) => {
+    bundler.bundle((err, src) => {
+      if (err) reject(err);
+      else resolve(src);
+    });
+  });
+};
+
 const start = async () => {
   const logger = createLogger(argv);
   const cwd = process.cwd();
-  const staticDir = argv.dir;
 
   let entry = argv._[0];
   delete argv._;
@@ -130,30 +142,47 @@ const start = async () => {
     output = cwd;
   }
 
-  const serve = argv.serve || argv.js || 'bundle.js';
-  const clientMiddleware = createMiddleware(Object.assign({}, argv, { output, cwd, logger }));
-  budo(entry, {
-    browserifyArgs,
-    open: argv.open,
-    serve,
-    middleware: clientMiddleware.middleware,
-    ignoreLog: clientMiddleware.ignoreLog,
-    live: {
-      cache: false,
-      debug: true,
-      include: [
-        // Could find a cleaner way to pass down props
-        // to client scripts...
-        output ? require.resolve('./client-enable-output.js') : undefined,
-        require.resolve('./client.js')
-      ].filter(Boolean)
-    },
-    defaultIndex: (opt, req) => {
-      return fs.createReadStream(path.resolve(__dirname, 'templates/index.html'));
-    },
-    dir: staticDir,
-    stream: argv.quiet ? null : process.stdout
-  });
+  const dir = argv.dir || process.cwd();
+  const js = argv.js || '/bundle.js';
+  const html = argv.html || '/index.html';
+  const htmlFile = path.join(dir, html);
+  const templateHtmlFile = path.resolve(__dirname, 'templates/index.html');
+  const jsFile = path.join(dir, js);
+
+  const defaultIndex = (opt, req) => {
+    // If we aren't forcing default index and a file exists at desired spot,
+    // use that instead of the default one.
+    const file = !argv.forceDefaultIndex && fs.existsSync(htmlFile) ? htmlFile : templateHtmlFile;
+    return fs.createReadStream(file);
+  };
+
+  if (argv.build) {
+    const bundler = browserifyFromArgs(browserifyArgs);
+    
+  } else {
+    const clientMiddleware = createMiddleware(Object.assign({}, argv, { output, cwd, logger }));
+    budo(entry, {
+      browserifyArgs,
+      open: argv.open,
+      serve: js,
+      middleware: clientMiddleware.middleware,
+      ignoreLog: clientMiddleware.ignoreLog,
+      live: {
+        cache: false,
+        debug: true,
+        include: [
+          // Could find a cleaner way to pass down props
+          // to client scripts...
+          output ? require.resolve('./client-enable-output.js') : undefined,
+          require.resolve('./client.js')
+        ].filter(Boolean)
+      },
+      forceDefaultIndex: true,
+      defaultIndex,
+      dir,
+      stream: argv.quiet ? null : process.stdout
+    });
+  }
 };
 
 start()
