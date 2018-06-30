@@ -1,0 +1,98 @@
+- Input script -> output script
+- Input script -> output [ html, js ] scripts
+- Input script -> output html script (inlined)
+- Input scripts -> output scripts
+- Input scripts -> output [ html, js ] scripts for each
+- Input scripts -> output html scripts (inlined) for each
+- Input app + script(s) -> output script
+- Input app + script(s) -> output [ html, jsCommon, jsApp, ...scriptHmtml, ...scriptJS ]
+- Input app + script(s) -> output [ htmlInline, ...scriptInlines ]
+
+# Open a sketchbook of any non-node_modules sub folders
+canvas-sketchbook
+
+# Use a config of entries
+canvas-sketchbook config.json
+
+# Open a sketchbook of a specific file + folders
+canvas-sketchbook sketches/ src/other.js
+
+# Build current dir + sketches to dist/
+canvas-sketchbook --build
+
+# HYPER idea - edit in dev mode
+canvas-sketchbook --code
+
+# Show code in sketchbook
+canvas-sketchbook --build --code
+
+# Build sketch folder as a book
+canvas-sketchbook sketches/ --build
+
+# Open a single sketch
+canvas-sketch src/index.js
+
+# Build the sketch to a JS + HTML pair in dist/
+canvas-sketch src/index.js --build
+canvas-sketch src/index.js --build=app/
+
+# Might give warnings if there are overlapping files... use -f to force
+canvas-sketch src/index.js --build=.
+
+# Use a custom HTML for the sketch
+canvas-sketch src/index.js --build --html=src/input.html
+
+
+my-sketches/
+  assets/
+  sketches/128.js
+  128.js
+
+canvas-sketch/ [building to .]
+  lib/
+  docs/
+  website/
+  examples/
+    canvas-foobar.js
+
+consolidate cli + main repo into uber repo?
+
+NEGATIVE REASON: don't want to install all of canvas-sketch cli every time ! clunky
+
+SKETCH:
+- [Generate input file if --new]
+- Parse inputs (list of globs -> JS, JSON)
+  - Other file types are filtered out and result in warnings
+  - Convert JSON to input entries with { file: 'src/index.js', label: 'Generative Thing' }
+- Gather dependencies for each input
+  - Also walk through local requires (not currently doing that)
+  - Walk glslify deps as well
+- Install any necessary dependencies
+- DEVELOPMENT
+  - Run budo on entry files
+- PRODUCTION
+  - Write JS + HTML to dist/
+    - Use same name as input
+
+SKETHCBOOK:
+- [Generate input file if --new]
+- Parse inputs (list of globs -> JS, JSON)
+  - Other file types are filtered out and result in warnings
+  - Convert JSON to input entries with { file: 'src/index.js', label: 'Generative Thing' }
+- Gather dependencies for each input
+  - Also walk through local requires (not currently doing that)
+  - Walk glslify deps as well
+- Install any necessary dependencies
+- DEVELOPMENT
+  - Local server middleware will see `${input.src}.js` and serve it factored
+  - Local server middleware will see `${input.src}.html` and serve HTML
+  - Clicking "Add New Sketch" will send WebSocket event to add a --new generated sketch
+  - Right-click + "Delete Sketch" + Confirm will send WebSocket event to remove the sketch file
+- PRODUCTION
+  - Write all files to dist/
+  - Generate "common" JS bundle shared across app + all files
+  - Generate "app" JS bundle just used for the main app
+  - 
+
+
+ASSETS?!?

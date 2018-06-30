@@ -5,8 +5,19 @@ module.exports = function (bundler, opt = {}) {
   const basedir = path.resolve(__dirname, '../');
   const resolver = bundler._bresolve;
 
-  // Resolve glslify from here instead of using working directory
+  // Clean up the browser resolve function a little bit
   bundler._bresolve = function (id, opts, cb) {
+    // When running from within the "canvas-sketch" folder, let's also
+    // re-direct any require to that folder. This way users can git clone
+    // and test without having to write require('../') to point to the library.
+    if (opts.package && opts.package.name && id === opts.package.name) {
+      if (id === 'canvas-sketch') {
+        id = './';
+        opts = Object.assign({}, opts, { basedir: opts.package.__dirname });
+      }
+    }
+
+    // Resolve glslify always from here, since it may not be installed in the user project
     if (/^glslify([\\/].*)?$/.test(id)) {
       opts = Object.assign({}, opts, { basedir });
     }

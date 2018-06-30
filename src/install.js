@@ -1,5 +1,5 @@
-const pify = require('pify');
-const installIfNeeded = pify(require('install-if-needed'));
+const { promisify } = require('util');
+const installIfNeeded = promisify(require('install-if-needed'));
 const konan = require('konan');
 const isBuiltin = require('is-builtin-module');
 const packageName = require('require-package-name');
@@ -7,7 +7,7 @@ const chalk = require('chalk');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const readFile = pify(fs.readFile);
+const readFile = promisify(fs.readFile);
 
 const readPackage = async (opt = {}) => {
   const cwd = opt.cwd || process.cwd();
@@ -21,7 +21,8 @@ const readPackage = async (opt = {}) => {
   return pkg;
 };
 
-const execAsync = pify(exec);
+const execAsync = promisify(exec);
+const canvasSketchModule = 'canvas-sketch';
 
 const writePackageIfNeeded = async (opt = {}) => {
   const logger = opt.logger;
@@ -52,16 +53,29 @@ module.exports = async function (src, opt = {}) {
 
   // get package JSON
   const pkg = await readPackage();
-  const currentDepObj = pkg.dependencies || {};
-  const currentDeps = Object.keys(currentDepObj);
-  const filtered = dependencies.filter(dep => !currentDeps.includes(dep));
+  const currentDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+  let filtered = dependencies.filter(dep => !currentDeps.includes(dep));
+
+  let key = 'dependencies';
+  if (pkg.name === canvasSketchModule) {
+    // Not sure it's really useful to warn the user of this
+    // if (logger) logger.log(`Note: Not installing ${chalk.bold(canvasSketchModule)} since we are already in its repository`);
+
+    filtered = filtered.filter(dep => dep !== canvasSketchModule);
+    key = 'devDependencies';
+  }
 
   // Only install if needed
   if (filtered.length > 0) {
+    const obj = { stdio: 'inherit' };
+    obj[key] = filtered;
     if (logger) {
-      logger.log(`Installing dependencies:\n  ${chalk.bold(dependencies.join(', '))}`);
+      if (key === 'devDependencies') {
+        logger.log(`Note: Installing into devDependencies since we are in ${chalk.bold(canvasSketchModule)} repository`);
+      }
+      logger.log(`Installing ${key}:\n  ${chalk.bold(filtered.join(', '))}`);
       logger.pad();
     }
-    return installIfNeeded({ dependencies: filtered, stdio: 'inherit' });
+    return installIfNeeded(obj);
   }
 };

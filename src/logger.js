@@ -8,31 +8,39 @@ module.exports.createLogger = function (opts = {}) {
   let needsPadding = false;
   const width = process.stdout.columns || 80;
   const wordWrap = str => wrap(str, { paddingLeft: '  ', paddingRight: '  ', width });
-  const getWrappedPadded = str => `\n${wordWrap(str)}`;
-  const getPadded = str => `\n${str}`;
+  const getPadded = (str, opt = {}) => {
+    if (opt.leadingSpace !== false) str = `\n${str}`;
+    return str;
+  };
+  const getWrappedPadded = (str, opt = {}) => getPadded(opt.wordWrap !== false ? wordWrap(str) : str, opt);
 
   const bullet = chalk.bold(chalk.green('→ '));
 
-  const stdout = (msg = '') => {
-    if (!quiet) console.log(msg);
-  };
-
-  const stderr = (msg = '') => {
+  const writeln = (msg = '') => {
+    // Write all log output to stderr
     if (!quiet) console.error(msg);
   };
 
   return {
     pad () {
       if (needsPadding) {
-        stdout();
+        writeln();
         needsPadding = false;
       }
     },
-    log (msg = '') {
+    writeLine (msg = '') {
       needsPadding = true;
-      stdout(msg ? getWrappedPadded(`${bullet}${msg}`) : '');
+      writeln(msg);
     },
-    error (header = '', body = '') {
+    log (msg = '', opt = {}) {
+      needsPadding = true;
+      if (msg) {
+        msg = `${opt.bullet || bullet}${msg}`;
+        if (opt.padding !== false) msg = getWrappedPadded(msg, opt);
+      }
+      writeln(msg || '');
+    },
+    error (header = '', body = '', opt = {}) {
       needsPadding = true;
       let wrapping = true;
       if (typeof header !== 'string' && isError(header) && header) {
@@ -51,12 +59,12 @@ module.exports.createLogger = function (opts = {}) {
       let msg;
       msg = [ header, body ].filter(Boolean).join('\n\n');
       if (wrapping) {
-        msg = getWrappedPadded(msg);
+        msg = getWrappedPadded(msg, opt);
       } else {
-        msg = getPadded(msg);
+        msg = getPadded(msg, opt);
       }
 
-      stderr(msg);
+      writeln(msg);
     }
   };
 };
