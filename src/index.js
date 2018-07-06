@@ -8,17 +8,14 @@ const getStdin = require('get-stdin');
 const fs = require('fs');
 const chalk = require('chalk');
 const { promisify } = require('util');
+const { generateFileName } = require('./util');
 const mkdirp = promisify(require('mkdirp'));
 const writeFile = promisify(fs.writeFile);
-const readFile = promisify(fs.readFile);
-const dateformat = require('dateformat');
-const filenamify = require('filenamify');
 const install = require('./install');
 const resolve = require('resolve');
 const browserifyFromArgs = require('browserify/bin/args');
 const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
-const maxstache = require('maxstache');
 const html = require('./html');
 const terser = require('terser');
 
@@ -71,14 +68,6 @@ const bundleAsync = (bundler) => {
       else resolve(src);
     });
   });
-};
-
-const generateFileName = (suffix = '') => {
-  const separator = suffix ? '-' : '';
-  suffix = suffix.replace(/\.js$/, '');
-  const date = dateformat(Date.now(), 'yyyy.mm.dd-HH.MM.ss');
-  const file = `${date}${separator}${suffix}.js`;
-  return filenamify(file);
 };
 
 const prepare = async () => {

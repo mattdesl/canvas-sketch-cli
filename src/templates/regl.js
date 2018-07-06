@@ -1,23 +1,22 @@
 const canvasSketch = require('canvas-sketch');
 const createRegl = require('regl');
 
+// Parameters for the sketch
 const settings = {
-  // Setup WebGL context
-  context: 'webgl',
-  // WebGL context attributes
-  attributes: {
-    antialias: true
-  }
+  animate: true, // Optional: Enable the animation loop
+  context: 'webgl', // Setup WebGL instead of 2D canvas
+  attributes: { antialias: true } // Turn on MSAA
 };
 
-canvasSketch(({ gl }) => {
+const sketch = ({ gl }) => {
   // Setup REGL with our canvas context
   const regl = createRegl({ gl });
 
-  // Regl GL draw commands...
+  // Regl GL draw commands
+  // ...
 
   // Return the renderer function
-  return () => {
+  return ({ time }) => {
     // Update regl sizes
     regl.poll();
 
@@ -26,6 +25,9 @@ canvasSketch(({ gl }) => {
       color: [ 0, 0, 0, 1 ]
     });
 
-    // Draw meshes...
+    // Draw meshes to scene
+    // ...
   };
-}, settings);
+};
+
+canvasSketch(sketch, settings);

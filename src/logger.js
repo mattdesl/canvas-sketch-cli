@@ -1,6 +1,7 @@
 const chalk = require('chalk');
 const { wrap } = require('cli-format');
 const isError = require('is-error');
+const defined = require('defined');
 
 module.exports.createLogger = function (opts = {}) {
   const quiet = opts.quiet;
@@ -35,7 +36,7 @@ module.exports.createLogger = function (opts = {}) {
     log (msg = '', opt = {}) {
       needsPadding = true;
       if (msg) {
-        msg = `${opt.bullet || bullet}${msg}`;
+        msg = `${defined(opt.bullet, bullet)}${msg}`;
         if (opt.padding !== false) msg = getWrappedPadded(msg, opt);
       }
       writeln(msg || '');
@@ -53,7 +54,7 @@ module.exports.createLogger = function (opts = {}) {
         wrapping = false;
       }
 
-      header = chalk.red(`Error: ${header}`);
+      header = chalk.red(`${opt.prefix || 'Error: '}${header}`);
       if (!wrapping) header = `  ${header}`;
 
       let msg;

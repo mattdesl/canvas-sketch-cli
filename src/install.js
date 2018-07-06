@@ -28,10 +28,13 @@ const writePackageIfNeeded = async (opt = {}) => {
   const logger = opt.logger;
   const cwd = opt.cwd || process.cwd();
   if (fs.existsSync(path.resolve(cwd, 'package.json'))) return;
-  if (logger) logger.log(`Generating default "${chalk.bold('package.json')}" file`);
-  const { stdout, stderr } = await execAsync('npm init -y');
-  if (stdout) console.log(stdout);
-  if (stderr) console.error(stderr);
+  if (logger) {
+    logger.log(`Generating default "${chalk.bold('package.json')}" file`);
+  }
+  const { stderr } = await execAsync('npm init -y');
+  // It's kinda noisy to print this for average users, and a bit scary looking
+  // if (stdout) console.log(stdout.trim());
+  if (stderr) console.error(stderr.trim());
 };
 
 // Install npm modules from a sketch template
