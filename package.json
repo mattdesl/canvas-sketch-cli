@@ -28,6 +28,7 @@
     "defined": "^1.0.0",
     "downloads-folder": "^1.0.1",
     "duplexer2": "^0.1.4",
+    "esmify": "^1.0.4",
     "filenamify": "^2.1.0",
     "get-stdin": "^6.0.0",
     "glslify": "^6.1.1",
@@ -46,6 +47,7 @@
     "require-package-name": "^2.0.1",
     "resolve": "^1.8.0",
     "rimraf": "^2.6.2",
+    "semver": "^5.5.0",
     "terser": "^3.7.6",
     "through2": "^2.0.3"
   },

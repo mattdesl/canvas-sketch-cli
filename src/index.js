@@ -18,6 +18,7 @@ const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
 const html = require('./html');
 const terser = require('terser');
+const pluginResolve = require('./plugin-resolve');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
@@ -84,12 +85,12 @@ const prepare = async () => {
 
   let entrySrc;
   if (argv.new) {
-    const suffix = typeof argv.new === 'string' ? argv.new : undefined;
+    const prefix = typeof argv.new === 'string' ? argv.new : undefined;
     let filepath;
     if (entry) {
       filepath = path.isAbsolute(entry) ? path.resolve(entry) : path.resolve(cwd, entry);
     } else {
-      filepath = path.resolve(cwd, sketchDirectory, generateFileName(suffix));
+      filepath = path.resolve(cwd, sketchDirectory, generateFileName(prefix));
     }
 
     if (!argv.force && fs.existsSync(filepath)) {
@@ -161,17 +162,23 @@ const prepare = async () => {
     output = cwd;
   }
 
-  // Add in glslify by default
-  browserifyArgs.unshift('-p', require.resolve('./plugin-resolve'));
-  browserifyArgs.unshift('-t', require.resolve('glslify'));
-
-  return Object.assign({}, argv, {
+  const params = Object.assign({}, argv, {
     browserifyArgs,
     output,
     logger,
     entry,
     cwd
   });
+
+  browserifyArgs.push(
+    // Add in ESM support
+    '-p', require.resolve('esmify'),
+    // Add in glslify and make it resolve to here
+    '-g', require.resolve('glslify'),
+    '-p', pluginResolve(params)
+  );
+
+  return params;
 };
 
 const start = async () => {

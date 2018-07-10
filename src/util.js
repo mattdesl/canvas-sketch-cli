@@ -1,12 +1,14 @@
 const dateformat = require('dateformat');
 const filenamify = require('filenamify');
 const spawn = require('cross-spawn');
+const semver = require('semver');
 
-module.exports.generateFileName = (suffix = '', ext = '.js') => {
-  const separator = suffix ? '-' : '';
-  suffix = suffix.replace(/\.js$/, '');
+const minVersion = '0.0.9';
+
+module.exports.generateFileName = (prefix = '', ext = '.js') => {
+  const separator = prefix ? '-' : '';
   const date = dateformat(Date.now(), 'yyyy.mm.dd-HH.MM.ss');
-  const file = `${date}${separator}${suffix}${ext}`;
+  const file = `${prefix}${separator}${date}${ext}`;
   return filenamify(file);
 };
 
@@ -23,4 +25,8 @@ module.exports.spawnAsync = (cmd, args, opt) => {
       else reject(new Error(stderr))
     });
   });
+};
+
+module.exports.needsUpdate = function (version) {
+  return semver.lt(version, minVersion);
 };
