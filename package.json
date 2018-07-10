@@ -18,7 +18,6 @@
     "browserify": "^16.2.2",
     "budo": "^11.3.1",
     "busboy": "^0.2.14",
-    "canvas-sketch": "0.0.2",
     "chalk": "^2.4.1",
     "cli-format": "^3.0.9",
     "command-exists": "^1.2.7",
@@ -43,7 +42,6 @@
     "ora": "^2.1.0",
     "pretty-bytes": "^5.1.0",
     "pretty-ms": "^3.2.0",
-    "regl": "^1.3.6",
     "require-package-name": "^2.0.1",
     "resolve": "^1.8.0",
     "rimraf": "^2.6.2",
@@ -51,7 +49,10 @@
     "terser": "^3.7.6",
     "through2": "^2.0.3"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "canvas-sketch": "0.0.2",
+    "regl": "^1.3.7"
+  },
   "scripts": {
     "test": "node test.js"
   },

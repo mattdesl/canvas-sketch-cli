@@ -3,7 +3,7 @@ const filenamify = require('filenamify');
 const spawn = require('cross-spawn');
 const semver = require('semver');
 
-const minVersion = '0.0.9';
+const minVersion = '0.0.10';
 
 module.exports.generateFileName = (prefix = '', ext = '.js') => {
   const separator = prefix ? '-' : '';
