@@ -27,7 +27,7 @@
     "defined": "^1.0.0",
     "downloads-folder": "^1.0.1",
     "duplexer2": "^0.1.4",
-    "esmify": "^1.0.4",
+    "esmify": "^1.1.0",
     "filenamify": "^2.1.0",
     "get-stdin": "^6.0.0",
     "glslify": "^6.1.1",
