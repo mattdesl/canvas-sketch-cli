@@ -9,7 +9,6 @@ module.exports = function createPlugin (settings = {}) {
     const resolver = bundler._bresolve;
 
     // Clean up the browser resolve function a little bit
-    console.log("moo");
     bundler._bresolve = function (id, opts, cb) {
       // When running from within the "canvas-sketch" folder, let's also
       // re-direct any require to that folder. This way users can git clone
