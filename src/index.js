@@ -5,6 +5,7 @@ const prettyBytes = require('pretty-bytes');
 const prettyMs = require('pretty-ms');
 const downloads = require('downloads-folder');
 const getStdin = require('get-stdin');
+const esmify = require('esmify');
 const fs = require('fs');
 const chalk = require('chalk');
 const { promisify } = require('util');
@@ -18,6 +19,7 @@ const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
 const html = require('./html');
 const terser = require('terser');
+const envify = require('loose-envify');
 const pluginResolve = require('./plugin-resolve');
 
 const argv = require('minimist')(process.argv.slice(2), {
@@ -170,12 +172,30 @@ const prepare = async () => {
     cwd
   });
 
+  const isProd = argv.mode === 'production';
+
   browserifyArgs.push(
     // Add in ESM support
-    '-p', require.resolve('esmify'),
+    '-p', (bundler, opts) => {
+      // Disable "module" field since it is brutally annoying :(
+      // Basically it changes the way CommonJS-authored code needs to
+      // be written, forcing authors to update their code paths to use:
+      //   require('blah').default
+      // The added benefit of tree-shaking ES Modules isn't even used here (no rollup/webpack)
+      // so we will just discard it altogether for a cleaner developer & user experience.
+      return esmify(bundler, Object.assign({}, opts, { mainFields: [ 'browser', 'main' ] }));
+    },
     // Add in glslify and make it resolve to here
     '-g', require.resolve('glslify'),
-    '-p', pluginResolve(params)
+    '-p', pluginResolve(params),
+    '-p', bundler => {
+      const global = isProd ? true : undefined;
+      bundler.transform(envify, {
+        global,
+        NODE_ENV: isProd ? 'production' : 'development',
+        SKETCH_ENTRY: path.relative(cwd, entry)
+      });
+    }
   );
 
   return params;
