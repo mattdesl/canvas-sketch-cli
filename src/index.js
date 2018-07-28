@@ -9,7 +9,7 @@ const esmify = require('esmify');
 const fs = require('fs');
 const chalk = require('chalk');
 const { promisify } = require('util');
-const { generateFileName } = require('./util');
+const { generateFileName, readPackage, isCanvasSketchPackage } = require('./util');
 const mkdirp = promisify(require('mkdirp'));
 const writeFile = promisify(fs.writeFile);
 const install = require('./install');
@@ -73,8 +73,25 @@ const bundleAsync = (bundler) => {
   });
 };
 
-const prepare = async () => {
-  const logger = createLogger(argv);
+const collidesWithSelf = (logger) => {
+  // We don't *really* need to force the user out,
+  // but if the package.json has the same name (i.e. if user types npm init -y)
+  // then you will end up with npm refusing to install itself.
+  // Better to just warn them right away and get them not too far along.
+  logger.error();
+  logger.pad();
+  process.exit(1);
+};
+
+const prepare = async (logger) => {
+  // Write a new package, but first check for collision
+  const dirName = path.basename(cwd);
+  if (dirName === 'canvas-sketch') {
+    const pkg = await readPackage({ cwd }, true);
+    if (!pkg || !isCanvasSketchPackage(pkg)) {
+      throw new Error(`Your folder name is ${chalk.bold('canvas-sketch')} which may lead to conflicts when using this tool. Please choose another folder name and run the command again.`);
+    }
+  }
 
   if (argv._.length > 1) {
     throw new Error('Currently only one entry is supported.\n\nExample usage:\n    canvas-sketch src/index.js');
@@ -202,8 +219,14 @@ const prepare = async () => {
 };
 
 const start = async () => {
-  const opt = await prepare();
-  const logger = opt.logger;
+  const logger = createLogger(argv);
+  let opt;
+  try {
+    opt = await prepare(logger);
+  } catch (err) {
+    logger.error(err);
+    process.exit(1);
+  }
 
   const fileName = opt.name || path.basename(opt.entry);
   const fileNameBase = path.basename(fileName, path.extname(fileName));

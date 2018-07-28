@@ -1,5 +1,5 @@
 const path = require('path');
-const { needsUpdate } = require('./util');
+const { isCanvasSketchPackage, needsUpdate } = require('./util');
 const chalk = require('chalk');
 
 module.exports = function createPlugin (settings = {}) {
@@ -14,7 +14,8 @@ module.exports = function createPlugin (settings = {}) {
       // re-direct any require to that folder. This way users can git clone
       // and test without having to write require('../') to point to the library.
       if (opts.package && opts.package.name && id === opts.package.name) {
-        if (id === 'canvas-sketch') {
+        // Package is marked as a canvas-sketch repo (or fork...)
+        if (isCanvasSketchPackage(opts.package)) {
           id = './';
           opts = Object.assign({}, opts, { basedir: opts.package.__dirname });
         }
