@@ -181,7 +181,6 @@ const prepare = async (logger) => {
 
   const isProd = argv.mode === 'production';
 
-  console.log('gogo2')
   browserifyArgs.push(
     // Add in ESM support
     '-p', (bundler, opts) => {
