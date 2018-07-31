@@ -73,16 +73,6 @@ const bundleAsync = (bundler) => {
   });
 };
 
-const collidesWithSelf = (logger) => {
-  // We don't *really* need to force the user out,
-  // but if the package.json has the same name (i.e. if user types npm init -y)
-  // then you will end up with npm refusing to install itself.
-  // Better to just warn them right away and get them not too far along.
-  logger.error();
-  logger.pad();
-  process.exit(1);
-};
-
 const prepare = async (logger) => {
   // Write a new package, but first check for collision
   const dirName = path.basename(cwd);
@@ -191,16 +181,24 @@ const prepare = async (logger) => {
 
   const isProd = argv.mode === 'production';
 
+  console.log('gogo2')
   browserifyArgs.push(
     // Add in ESM support
     '-p', (bundler, opts) => {
-      // Disable "module" field since it is brutally annoying :(
-      // Basically it changes the way CommonJS-authored code needs to
-      // be written, forcing authors to update their code paths to use:
-      //   require('blah').default
-      // The added benefit of tree-shaking ES Modules isn't even used here (no rollup/webpack)
-      // so we will just discard it altogether for a cleaner developer & user experience.
-      return esmify(bundler, Object.assign({}, opts, { mainFields: [ 'browser', 'main' ] }));
+      return esmify(bundler, Object.assign({}, opts, {
+        // Disable "module" field since it is brutally annoying :(
+        // Basically it changes the way CommonJS-authored code needs to
+        // be written, forcing authors to update their code paths to use:
+        //   require('blah').default
+        // The added benefit of tree-shaking ES Modules isn't even used here (no rollup/webpack)
+        // so we will just discard it altogether for a cleaner developer & user experience.
+        mainFields: [ 'browser', 'main' ],
+        // This is a bit frustrating, as well. Babel-ifying the entire node_modules
+        // tree is extremely slow, and only fixes a few problematic modules
+        // that have decided to publish with ESM, which isn't even standard yet!
+        // So, we will only support ESM in local code for canvas-sketch.
+        nodeModules: false
+      }));
     },
     // Add in glslify and make it resolve to here
     '-g', require.resolve('glslify'),
