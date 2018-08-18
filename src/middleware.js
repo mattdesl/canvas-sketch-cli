@@ -64,7 +64,7 @@ module.exports = (opt = {}) => {
       } else if (post && req.url === '/canvas-sketch-cli/commit') {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
-        commit({ logger, quiet }).then(result => {
+        commit(Object.assign({}, opt, { logger, quiet })).then(result => {
           res.end(JSON.stringify(result));
         }).catch(err => {
           sendError(res, err);

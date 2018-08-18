@@ -1,5 +1,6 @@
 const dateformat = require('dateformat');
 const { exec } = require('child_process');
+const path = require('path');
 
 module.exports = async function (opt = {}) {
   const logger = opt.logger;
@@ -31,16 +32,17 @@ module.exports = async function (opt = {}) {
     });
 };
 
-function generateCommitMessage () {
+function generateCommitMessage (entryName) {
   // TODO: Maybe figure out a nice naming pattern for the commit
   // message. Ideally it would take the timeStamp from the export function,
   // however we don't want to inject user-modifiable strings into exec...
   const date = dateformat(Date.now(), 'yyyy.mm.dd-HH.MM.ss');
-  return `generation-${date}`;
+  const prefix = entryName ? `[${entryName}]` : '';
+  return `${prefix} ${date}`;
 }
 
 function doCommit (opt) {
-  const msg = generateCommitMessage();
+  const msg = generateCommitMessage(opt.entry ? path.relative(opt.cwd, opt.entry) : null);
   return execify(`git add . && git commit -m "${msg}"`)
     .then(result => {
       if (opt.logger) {
