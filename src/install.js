@@ -49,9 +49,8 @@ module.exports = async function (src, opt = {}) {
   let filtered = dependencies.filter(dep => !currentDeps.includes(dep));
 
   let key = 'dependencies';
+  const canvasSketchModule = 'canvas-sketch';
   if (isCanvasSketchPackage(pkg)) {
-    const canvasSketchModule = pkg.name || 'canvas-sketch';
-
     // Not sure it's really useful to warn the user of this
     if (logger) logger.log(`Note: Not installing ${chalk.bold(canvasSketchModule)} since we are already in its repository`);
 
@@ -63,6 +62,7 @@ module.exports = async function (src, opt = {}) {
   if (filtered.length > 0) {
     const obj = { stdio: 'inherit' };
     obj[key] = filtered;
+
     if (logger) {
       if (key === 'devDependencies') {
         logger.log(`Note: Installing into devDependencies since we are in ${chalk.bold(canvasSketchModule)} repository`);
