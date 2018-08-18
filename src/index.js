@@ -116,10 +116,25 @@ const prepare = async (logger) => {
       // Allow the user to pass in piped code
       entrySrc = stdin;
     } else {
+      let templateFile;
+      if (/^[\\/.]/.test(argv.template)) {
+        templateFile = path.isAbsolute(argv.template)
+          ? argv.template
+          : path.resolve(cwd, argv.template);
+        if (!fs.existsSync(templateFile)) {
+          throw new Error(`Couldn't find a template at ${argv.template}`);
+        }
+      } else {
+        templateFile = path.resolve(__dirname, templateDirectory, `${argv.template}.js`);
+        if (!fs.existsSync(templateFile)) {
+          throw new Error(`Couldn't find a template by the key ${argv.template}`);
+        }
+      }
+
       try {
-        entrySrc = fs.readFileSync(path.resolve(__dirname, templateDirectory, `${argv.template}.js`), 'utf-8');
+        entrySrc = fs.readFileSync(templateFile, 'utf-8');
       } catch (err) {
-        throw new Error(`Couldn't find a template by the key ${argv.template}`);
+        throw new Error(`Error while reading the template ${argv.template}`);
       }
     }
 
