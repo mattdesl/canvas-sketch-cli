@@ -92,6 +92,7 @@ const prepare = async (logger) => {
   const browserifyArgs = argv['--'] || [];
   delete argv['--'];
 
+  let resolveEntry;
   let entrySrc;
   if (argv.new) {
     const prefix = typeof argv.new === 'string' ? argv.new : undefined;
@@ -112,6 +113,7 @@ const prepare = async (logger) => {
 
     // Get stdin for piping
     const stdin = (await getStdin()).trim();
+
     if (stdin && (!argv.template || argv.template === 'default')) {
       // Allow the user to pass in piped code
       entrySrc = stdin;
@@ -131,6 +133,7 @@ const prepare = async (logger) => {
         }
       }
 
+      resolveEntry = templateFile;
       try {
         entrySrc = fs.readFileSync(templateFile, 'utf-8');
       } catch (err) {
@@ -142,6 +145,8 @@ const prepare = async (logger) => {
     fs.writeFileSync(filepath, entrySrc);
     entry = filepath;
   }
+
+  if (!resolveEntry) resolveEntry = entry;
 
   if (!entry) {
     logger.error('No entry file specified!', `Example usage:\n    canvas-sketch src/index.js\n    canvas-sketch --new --template=regl`);
@@ -170,7 +175,7 @@ const prepare = async (logger) => {
 
   // Install dependencies from the template if needed
   if (argv.install !== false) {
-    await install(entrySrc, { logger, cwd, ignore: [ 'glslify' ] });
+    await install(resolveEntry, { logger, cwd, ignore: [ 'glslify' ] });
   }
 
   let output = typeof argv.output !== 'undefined' ? argv.output : true;

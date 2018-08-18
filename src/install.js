@@ -8,6 +8,7 @@ const chalk = require('chalk');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const walkDeps = require('./walk-local-deps');
 
 const execAsync = promisify(exec);
 
@@ -26,12 +27,16 @@ const writePackageIfNeeded = async (opt = {}) => {
 };
 
 // Install npm modules from a sketch template
-module.exports = async function (src, opt = {}) {
+module.exports = async function (entry, opt = {}) {
   const logger = opt.logger;
   const ignore = [].concat(opt.ignore).filter(Boolean);
-  let requires = konan(src).strings;
+
+  // walk the file and its local dependency tree
+  console.log("WALKING", entry);
+  let requires = await walkDeps(entry);
+
   const dependencies = requires
-    .filter(req => !/^[./\\]/.test(req) && !ignore.includes(req))
+    .filter(req => !/^[./\\/]/.test(req) && !ignore.includes(req))
     .map(req => packageName(req))
     .filter(req => !isBuiltin(req))
     .filter((item, i, list) => list.indexOf(item) === i);
