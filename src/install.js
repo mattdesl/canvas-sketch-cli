@@ -32,7 +32,6 @@ module.exports = async function (entry, opt = {}) {
   const ignore = [].concat(opt.ignore).filter(Boolean);
 
   // walk the file and its local dependency tree
-  console.log("WALKING", entry);
   let requires = await walkDeps(entry);
 
   const dependencies = requires
