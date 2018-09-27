@@ -24,8 +24,9 @@ const pluginResolve = require('./plugin-resolve');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
-  boolean: [ 'open', 'force', 'pushstate', 'install', 'quiet', 'build' ],
+  boolean: [ 'open', 'force', 'pushstate', 'install', 'quiet', 'build', 'version' ],
   alias: {
+    version: 'v',
     port: 'p',
     pushstate: 'P',
     build: 'b',
@@ -42,6 +43,11 @@ const argv = require('minimist')(process.argv.slice(2), {
     template: 'default'
   }
 });
+
+if (argv.version) {
+  console.log(require('../package.json').version);
+  process.exit(0);
+}
 
 const templateDirectory = 'templates';
 const sketchDirectory = 'sketches';
