@@ -19,8 +19,10 @@ const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
 const html = require('./html');
 const terser = require('terser');
+const { EventEmitter } = require('events');
 const envify = require('loose-envify');
 const pluginResolve = require('./plugin-resolve');
+const transformInstaller = require('./transform-installer');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
@@ -181,7 +183,11 @@ const prepare = async (logger) => {
 
   // Install dependencies from the template if needed
   if (argv.install !== false) {
-    await install(resolveEntry, { logger, cwd, ignore: [ 'glslify' ] });
+    try {
+      await install(resolveEntry, { entrySrc, logger, cwd });
+    } catch (err) {
+      console.error(err.toString());
+    }
   }
 
   let output = typeof argv.output !== 'undefined' ? argv.output : true;
@@ -202,7 +208,8 @@ const prepare = async (logger) => {
     output,
     logger,
     entry,
-    cwd
+    cwd,
+    installer: new EventEmitter()
   });
 
   const isProd = argv.mode === 'production';
@@ -238,6 +245,11 @@ const prepare = async (logger) => {
     }
   );
 
+  // TODO: Figure out a nice way to install automatically
+  // if (argv.install !== false) {
+  //   browserifyArgs.push('-t', transformInstaller(params));
+  // }
+
   return params;
 };
 
@@ -247,8 +259,7 @@ const start = async () => {
   try {
     opt = await prepare(logger);
   } catch (err) {
-    logger.error(err);
-    process.exit(1);
+    throw err;
   }
 
   const fileName = opt.name || path.basename(opt.entry);
@@ -335,7 +346,7 @@ const start = async () => {
 
     const browserifyArgs = opt.browserifyArgs;
     const clientMiddleware = createMiddleware(opt);
-    budo(opt.entry, {
+    const app = budo(opt.entry, {
       browserifyArgs,
       open: argv.open,
       serve: jsUrl,
@@ -343,26 +354,62 @@ const start = async () => {
       pushstate: argv.pushstate,
       middleware: clientMiddleware.middleware,
       ignoreLog: clientMiddleware.ignoreLog,
-      live: {
-        cache: true,
-        debug: false,
-        include: [
-          // Could find a cleaner way to pass down props
-          // to client scripts...
-          opt.output ? require.resolve('./client-enable-output.js') : undefined,
-          require.resolve('./client.js')
-        ].filter(Boolean)
-      },
       forceDefaultIndex: true,
       defaultIndex: () => html.stream(htmlOpts),
       dir,
       stream: argv.quiet ? null : process.stdout
-    });
+    }).live({
+      cache: true,
+      debug: false,
+      include: [
+        // Could find a cleaner way to pass down props
+        // to client scripts...
+        opt.output ? require.resolve('./client-enable-output.js') : undefined,
+        require.resolve('./client.js')
+      ].filter(Boolean)
+    })
+      .watch()
+      .on('update', (ev, files) => {
+        app.reload();
+      })
+      .on('pending', (files) => {
+        // app.reload();
+      })
+      .on('watch', (ev, file) => {
+        console.log('Watch file', file);
+        app.reload(file);
+      })
+      .on('connect', ev => {
+        // Here we could do some things like notify the clients that a module is being
+        // installed.
+        const wss = ev.webSocketServer;
+        const installEvents = [ 'install-start', 'install-end' ];
+        installEvents.forEach(key => {
+          opt.installer.on(key, ({ modules }) => {
+            app.error(key === 'install-start'
+              ? `Installing modules from npm: ${modules.join(', ')}`
+              : `Reloading...`);
+            wss.clients.forEach(function (socket) {
+              socket.send(JSON.stringify({ event: key }));
+            });
+          });
+        });
+      });
   }
 };
 
 start()
   .catch(err => {
     const { message, stack } = getErrorDetails(err);
-    console.error([ '', chalk.red(message), stack, '' ].join('\n'));
+    if (err instanceof SyntaxError) {
+      console.error(`\n${err.toString()}\n`);
+    } else {
+      console.error([
+        '',
+        chalk.red(message),
+        '',
+        `    ${stack.trim().split('\n').slice(0, 10).join('\n')}`,
+        ''
+      ].join('\n'));
+    }
   });

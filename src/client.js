@@ -57,3 +57,12 @@ window['canvas-sketch-cli'].commit = () => {
       return undefined;
     });
 };
+
+// npm/node installation notification
+// it works but little popup instead of full page reload would be nice
+// if ('budo-livereload' in window) {
+//   const budo = window['budo-livereload'];
+//   budo.listen((data) => {
+//     console.log('[LiveReload] Message form WebSocketServer: ', data);
+//   });
+// }

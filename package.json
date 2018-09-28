@@ -18,6 +18,7 @@
     "browserify": "^16.2.2",
     "budo": "^11.3.1",
     "busboy": "^0.2.14",
+    "cached-path-relative": "^1.0.1",
     "chalk": "^2.4.1",
     "cli-format": "^3.0.9",
     "command-exists": "^1.2.7",
@@ -67,6 +68,10 @@
     "glsl",
     "2d"
   ],
+  "engines" : {
+    "node": ">=8",
+    "npm": ">=5"
+  },
   "repository": {
     "type": "git",
     "url": "git://github.com/mattdesl/canvas-sketch-cli.git"

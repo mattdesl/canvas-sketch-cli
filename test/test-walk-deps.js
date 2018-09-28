@@ -7,7 +7,55 @@ test('should walk local deps', async t => {
   const dependencies = await walk(path.resolve(__dirname, 'fixtures/foo.js'));
   t.deepEqual(dependencies, [
     'util', 'foo-bar/blah/bar.js',
-    './deep/test.js', './foo.js',
+    './deep/test.js', './foo.js', './second',
     'three', '../bar.js', '../foo.js'
+  ]);
+});
+
+test('should walk local deps with depth', async t => {
+  t.plan(1);
+  const dependencies = await walk(path.resolve(__dirname, 'fixtures/depth-0.js'), {
+    maxDepth: 0
+  });
+  t.deepEqual(dependencies, [
+    'util', './depth-1'
+  ]);
+});
+
+test('should walk local deps with depth', async t => {
+  t.plan(1);
+  const dependencies = await walk(path.resolve(__dirname, 'fixtures/depth-0.js'), {
+    maxDepth: 1
+  });
+  t.deepEqual(dependencies, [
+    'util', './depth-1', 'http', './depth-2'
+  ]);
+});
+
+test('should walk local deps with depth', async t => {
+  t.plan(1);
+  const dependencies = await walk(path.resolve(__dirname, 'fixtures/depth-0.js'), {
+    maxDepth: 2
+  });
+  t.deepEqual(dependencies, [
+    'util', './depth-1', 'http', './depth-2', 'events'
+  ]);
+});
+
+test('should walk local deps with depth', async t => {
+  t.plan(1);
+  const dependencies = await walk(path.resolve(__dirname, 'fixtures/depth-0.js'));
+  t.deepEqual(dependencies, [
+    'util', './depth-1', 'http', './depth-2', 'events'
+  ]);
+});
+
+test('should walk local deps with entry source code', async t => {
+  t.plan(1);
+  const dependencies = await walk(path.resolve(__dirname, 'fixtures/depth-0.js'), {
+    entrySrc: `require('foobar'); require('./depth-1');`
+  });
+  t.deepEqual(dependencies, [
+    'foobar', './depth-1', 'http', './depth-2'
   ]);
 });

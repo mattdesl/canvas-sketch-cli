@@ -1,6 +1,5 @@
 const { promisify } = require('util');
 const installIfNeeded = promisify(require('install-if-needed'));
-const konan = require('konan');
 const { isCanvasSketchPackage, readPackage } = require('./util');
 const isBuiltin = require('is-builtin-module');
 const packageName = require('require-package-name');
@@ -9,8 +8,11 @@ const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const walkDeps = require('./walk-local-deps');
+const defined = require('defined');
 
 const execAsync = promisify(exec);
+
+const DEFAULT_IGNORES = [ 'glslify' ];
 
 const writePackageIfNeeded = async (opt = {}) => {
   const logger = opt.logger;
@@ -29,10 +31,17 @@ const writePackageIfNeeded = async (opt = {}) => {
 // Install npm modules from a sketch template
 module.exports = async function (entry, opt = {}) {
   const logger = opt.logger;
-  const ignore = [].concat(opt.ignore).filter(Boolean);
+  const ignore = DEFAULT_IGNORES.concat(opt.ignore).filter(Boolean);
+  const maxDepth = defined(opt.maxDepth, Infinity);
+  const entrySrc = opt.entrySrc;
 
   // walk the file and its local dependency tree
-  let requires = await walkDeps(entry);
+  let requires;
+  try {
+    requires = await walkDeps(entry, { maxDepth, entrySrc });
+  } catch (err) {
+    throw err;
+  }
 
   const dependencies = requires
     .filter(req => !/^[./\\/]/.test(req) && !ignore.includes(req))
@@ -74,6 +83,20 @@ module.exports = async function (entry, opt = {}) {
       logger.log(`Installing ${key}:\n  ${chalk.bold(filtered.join(', '))}`);
       logger.pad();
     }
-    return installIfNeeded(obj);
+
+    if (opt.installer) {
+      opt.installer.emit('install-start', { entry, modules: filtered });
+    }
+    try {
+      await installIfNeeded(obj);
+      if (opt.installer) {
+        opt.installer.emit('install-end', { entry, modules: filtered });
+      }
+    } catch (err) {
+      if (opt.installer) {
+        opt.installer.emit('install-end', { entry, modules: filtered, err });
+      }
+      throw err;
+    }
   }
 };

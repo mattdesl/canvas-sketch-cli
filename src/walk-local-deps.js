@@ -2,6 +2,8 @@ const konan = require('konan');
 const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
+const defined = require('defined');
+const babel = require('@babel/core');
 
 // Usually we would support browser-resolve,
 // however in this case we just need to resolve
@@ -10,18 +12,34 @@ const resolve = promisify(require('resolve'));
 const readFile = promisify(fs.readFile);
 const isLocal = /^[./\\/]/;
 
-module.exports = async (entry) => {
+module.exports = async (entry, opt = {}) => {
+  const maxDepth = defined(opt.maxDepth, Infinity);
   const checked = [];
   const dependencies = [];
 
-  const walk = async (file) => {
+  const walk = async (file, src, curDepth = 0) => {
     // mark this file as checked
     checked.push(file);
 
-    // read from file and parse require/import statements
-    const src = await readFile(file, 'utf-8');
+    if (typeof src === 'undefined') {
+      src = await readFile(file, 'utf-8');
+    }
+
     const basedir = path.dirname(file);
-    const deps = konan(src).strings;
+    let deps;
+    try {
+      const babelResult = babel.transform(src, {
+        ast: true,
+        babelrc: true,
+        filename: file,
+        sourceFileName: file,
+        highlightCode: true
+      });
+      const result = konan(babelResult.ast);
+      deps = result.strings;
+    } catch (err) {
+      throw err;
+    }
 
     // add each to final list of imports if it doesn't exist already
     deps.forEach(id => {
@@ -45,9 +63,14 @@ module.exports = async (entry) => {
     ids = ids.filter(id => !checked.includes(id));
 
     // now let's walk each new dep
-    await Promise.all(ids.map(id => walk(id)));
+    curDepth++;
+    if (curDepth <= maxDepth) {
+      await Promise.all(ids.map(id => {
+        return walk(id, undefined, curDepth);
+      }));
+    }
   };
 
-  await walk(entry);
+  await walk(entry, opt.entrySrc, 0);
   return dependencies.map(d => d.id);
 };
