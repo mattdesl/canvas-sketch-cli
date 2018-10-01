@@ -12,7 +12,9 @@ const readFile = promisify(fs.readFile);
 function transform (htmlData, opt = {}) {
   htmlData = maxstache(htmlData, {
     src: opt.src,
-    entry: `<script async src="${opt.src}"></script>`
+    entry: opt.inline
+      ? `<script>${opt.code}</script>`
+      : `<script src="${opt.src}"></script>`
   });
   if (opt.compress) {
     htmlData = minify(htmlData, {
@@ -21,7 +23,7 @@ function transform (htmlData, opt = {}) {
       decodeEntities: true,
       html5: true,
       minifyCSS: true,
-      minifyJS: true,
+      minifyJS: !opt.inline,
       removeAttributeQuotes: true,
       removeEmptyAttributes: true,
       removeOptionalTags: true,

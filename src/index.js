@@ -26,7 +26,16 @@ const transformInstaller = require('./transform-installer');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
-  boolean: [ 'open', 'force', 'pushstate', 'install', 'quiet', 'build', 'version' ],
+  boolean: [
+    'open',
+    'force',
+    'pushstate',
+    'install',
+    'quiet',
+    'build',
+    'version',
+    'inline'
+  ],
   alias: {
     version: 'v',
     port: 'p',
@@ -265,7 +274,7 @@ const start = async () => {
   const fileName = opt.name || path.basename(opt.entry);
   const fileNameBase = path.basename(fileName, path.extname(fileName));
 
-  const jsUrl = encodeURIComponent(fileName);
+  const jsUrl = opt.js || encodeURIComponent(fileName);
   const htmlOpts = { file: htmlFile, src: jsUrl };
 
   if (opt.build) {
@@ -286,6 +295,7 @@ const start = async () => {
 
     // Create bundler from CLI options
     const bundler = browserifyFromArgs(opt.browserifyArgs, {
+      debug: !compress,
       entries: opt.entry
     });
 
@@ -319,7 +329,7 @@ const start = async () => {
 
     // In --stdout mode, just output the code
     if (opt.stdout) {
-      console.log('TODO: --stdout mode');
+      throw new Error('--stdout is not yet supported');
     } else {
       // A util to log the output of a file
       const logFile = (type, file, data) => {
@@ -327,14 +337,22 @@ const start = async () => {
         logger.log(`${type} → ${chalk.bold(path.relative(cwd, file))} ${bytes}`, { leadingSpace: false });
       };
 
+      const inline = opt.inline;
+
       // Read the templated HTML, transform it and write it out
-      const htmlData = await html.read(Object.assign({}, htmlOpts, { compress }));
+      const htmlData = await html.read(Object.assign({}, htmlOpts, {
+        inline,
+        code,
+        compress
+      }));
       await writeFile(htmlOutFile, htmlData);
       logFile('HTML', htmlOutFile, htmlData);
 
       // Write bundled JS
-      await writeFile(jsOutFile, code);
-      logFile('JS  ', jsOutFile, code);
+      if (!inline) {
+        await writeFile(jsOutFile, code);
+        logFile('JS  ', jsOutFile, code);
+      }
 
       const ms = (Date.now() - timeStart);
       logger.log(`Finished in ${chalk.magenta(prettyMs(ms))}`, { leadingSpace: false });
@@ -346,7 +364,16 @@ const start = async () => {
 
     const browserifyArgs = opt.browserifyArgs;
     const clientMiddleware = createMiddleware(opt);
-    const app = budo(opt.entry, {
+
+    const entries = [
+      // Could find a cleaner way to pass down props
+      // to client scripts...
+      opt.output ? require.resolve('./client-enable-output.js') : undefined,
+      require.resolve('./client.js'),
+      opt.entry
+    ].filter(Boolean);
+
+    const app = budo(entries, {
       browserifyArgs,
       open: argv.open,
       serve: jsUrl,
@@ -358,29 +385,19 @@ const start = async () => {
       defaultIndex: () => html.stream(htmlOpts),
       dir,
       stream: argv.quiet ? null : process.stdout
-    }).live({
-      cache: true,
-      debug: false,
-      include: [
-        // Could find a cleaner way to pass down props
-        // to client scripts...
-        opt.output ? require.resolve('./client-enable-output.js') : undefined,
-        require.resolve('./client.js')
-      ].filter(Boolean)
-    })
+    }).live()
       .watch()
       .on('update', (ev, files) => {
-        app.reload();
-      })
-      .on('pending', (files) => {
         // app.reload();
       })
+      .on('pending', (files) => {
+        app.reload();
+      })
       .on('watch', (ev, file) => {
-        console.log('Watch file', file);
         app.reload(file);
       })
       .on('connect', ev => {
-        // Here we could do some things like notify the clients that a module is being
+        // Here we do some things like notify the clients that a module is being
         // installed.
         const wss = ev.webSocketServer;
         const installEvents = [ 'install-start', 'install-end' ];
