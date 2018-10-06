@@ -387,11 +387,11 @@ const start = async () => {
       stream: argv.quiet ? null : process.stdout
     }).live()
       .watch()
-      .on('update', (ev, files) => {
-        // app.reload();
-      })
+      // .on('update', (contents, files) => {
+      //   // app.reload();
+      // })
       .on('pending', (files) => {
-        app.reload();
+        // app.reload();
       })
       .on('watch', (ev, file) => {
         app.reload(file);
@@ -406,10 +406,36 @@ const start = async () => {
             app.error(key === 'install-start'
               ? `Installing modules from npm: ${modules.join(', ')}`
               : `Reloading...`);
-            wss.clients.forEach(function (socket) {
+            wss.clients.forEach(socket => {
               socket.send(JSON.stringify({ event: key }));
             });
           });
+        });
+
+        var lastBundle;
+        var hasError = false;
+        app.on('pending', error => {
+          hasError = false;
+        })
+
+        app.on('bundle-error', error => {
+          hasError = true;
+        })
+
+        app.on('update', (code) => {
+          code = code.toString();
+          console.log('Update', code.length);
+          if (code === lastBundle) {
+            return;
+          }
+          wss.clients.forEach(socket => {
+            socket.send(JSON.stringify({
+              event: 'eval',
+              error: hasError,
+              code
+            }));
+          });
+          lastBundle = code;
         });
       });
   }

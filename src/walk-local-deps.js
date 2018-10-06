@@ -5,6 +5,12 @@ const { promisify } = require('util');
 const defined = require('defined');
 const babel = require('@babel/core');
 
+// Gotta add these so babel doesn't bail out when it sees new syntax
+const pluginSyntaxRestSpread = require('@babel/plugin-syntax-object-rest-spread');
+const pluginSyntaxGenerator = require('@babel/plugin-syntax-async-generators');
+const pluginDynamicImport = require('@babel/plugin-syntax-dynamic-import');
+const pluginCJS = require('@babel/plugin-transform-modules-commonjs');
+
 // Usually we would support browser-resolve,
 // however in this case we just need to resolve
 // local deps which is no different in node/browser resolve algorithm
@@ -31,6 +37,12 @@ module.exports = async (entry, opt = {}) => {
       const babelResult = babel.transform(src, {
         ast: true,
         babelrc: true,
+        plugins: [
+          pluginSyntaxRestSpread,
+          pluginSyntaxGenerator,
+          pluginDynamicImport,
+          pluginCJS
+        ],
         filename: file,
         sourceFileName: file,
         highlightCode: true
