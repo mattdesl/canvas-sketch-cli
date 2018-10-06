@@ -20,7 +20,7 @@
     "@babel/plugin-syntax-object-rest-spread": "^7.0.0",
     "@babel/plugin-transform-modules-commonjs": "^7.1.0",
     "browserify": "^16.2.2",
-    "budo": "^11.4.0",
+    "budo": "^11.4.1",
     "busboy": "^0.2.14",
     "cached-path-relative": "^1.0.1",
     "canvas-sketch": "0.0.20",

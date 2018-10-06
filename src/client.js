@@ -67,7 +67,8 @@ function initialize () {
       });
   };
 
-  if ('budo-livereload' in window) {
+  if ('budo-livereload' in window && window[NAMESPACE].hot) {
+    console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reload Enabled`, 'color: #8e8e8e;', 'color: initial;');
     let lastBundle;
     const client = window['budo-livereload'];
     client.listen(data => {
@@ -80,7 +81,6 @@ function initialize () {
           if (!data.error) console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reloaded`, 'color: #8e8e8e;', 'color: initial;');
         } catch (err) {
           console.error(`%c[canvas-sketch-cli]%c 🚨 Hot Reload error`, 'color: #8e8e8e;', 'color: initial;');
-          // client.clearError()
           console.error(err.toString());
           client.showError(err.toString());
         }

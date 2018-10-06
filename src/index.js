@@ -23,10 +23,12 @@ const { EventEmitter } = require('events');
 const envify = require('loose-envify');
 const pluginResolve = require('./plugin-resolve');
 const transformInstaller = require('./transform-installer');
+const transformHot = require('./transform-hot');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
   boolean: [
+    'hot',
     'open',
     'force',
     'pushstate',
@@ -212,10 +214,12 @@ const prepare = async (logger) => {
     output = cwd;
   }
 
+  const hot = Boolean(argv.hot);
   const params = Object.assign({}, argv, {
     browserifyArgs,
     output,
     logger,
+    hot,
     entry,
     cwd,
     installer: new EventEmitter()
@@ -253,6 +257,10 @@ const prepare = async (logger) => {
       });
     }
   );
+
+  if (hot) {
+    browserifyArgs.push('-t', transformHot(params));
+  }
 
   // TODO: Figure out a nice way to install automatically
   // if (argv.install !== false) {
@@ -365,10 +373,12 @@ const start = async () => {
     const browserifyArgs = opt.browserifyArgs;
     const clientMiddleware = createMiddleware(opt);
 
+    const hotReloading = opt.hot;
     const entries = [
       // Could find a cleaner way to pass down props
       // to client scripts...
       opt.output ? require.resolve('./client-enable-output.js') : undefined,
+      hotReloading ? require.resolve('./client-enable-hot.js') : undefined,
       require.resolve('./client.js'),
       opt.entry
     ].filter(Boolean);
@@ -387,11 +397,8 @@ const start = async () => {
       stream: argv.quiet ? null : process.stdout
     }).live()
       .watch()
-      // .on('update', (contents, files) => {
-      //   // app.reload();
-      // })
-      .on('pending', (files) => {
-        // app.reload();
+      .on('pending', () => {
+        if (!hotReloading) app.reload();
       })
       .on('watch', (ev, file) => {
         app.reload(file);
@@ -412,31 +419,32 @@ const start = async () => {
           });
         });
 
-        var lastBundle;
-        var hasError = false;
-        app.on('pending', error => {
-          hasError = false;
-        })
+        if (hotReloading) {
+          var lastBundle;
+          var hasError = false;
+          app.on('pending', error => {
+            hasError = false;
+          })
 
-        app.on('bundle-error', error => {
-          hasError = true;
-        })
+          app.on('bundle-error', error => {
+            hasError = true;
+          })
 
-        app.on('update', (code) => {
-          code = code.toString();
-          console.log('Update', code.length);
-          if (code === lastBundle) {
-            return;
-          }
-          wss.clients.forEach(socket => {
-            socket.send(JSON.stringify({
-              event: 'eval',
-              error: hasError,
-              code
-            }));
+          app.on('update', (code) => {
+            code = code.toString();
+            if (code === lastBundle) {
+              return;
+            }
+            wss.clients.forEach(socket => {
+              socket.send(JSON.stringify({
+                event: 'eval',
+                error: hasError,
+                code
+              }));
+            });
+            lastBundle = code;
           });
-          lastBundle = code;
-        });
+        }
       });
   }
 };
