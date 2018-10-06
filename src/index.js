@@ -23,7 +23,6 @@ const { EventEmitter } = require('events');
 const envify = require('loose-envify');
 const pluginResolve = require('./plugin-resolve');
 const transformInstaller = require('./transform-installer');
-const transformHot = require('./transform-hot');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
@@ -257,10 +256,6 @@ const prepare = async (logger) => {
       });
     }
   );
-
-  if (hot) {
-    browserifyArgs.push('-t', transformHot(params));
-  }
 
   // TODO: Figure out a nice way to install automatically
   // if (argv.install !== false) {
