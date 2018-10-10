@@ -1,23 +1,24 @@
 const canvasSketch = require('canvas-sketch');
-
-// TODO! put penplot utils on npm
-const polylinesToSVG = () => `<svg></svg>`;
+const { renderPolylines } = require('canvas-sketch-util/penplot');
+const { clipPolylinesToBox } = require('canvas-sketch-util/geometry');
 
 const settings = {
-  scaleToView: true,
+  dimensions: 'A4',
+  orientation: 'portrait',
   pixelsPerInch: 300,
-  dimensions: [ 8.5, 11 ],
-  units: 'in'
+  scaleToView: true,
+  units: 'cm',
 };
 
 const sketch = ({ width, height }) => {
+  // List of polylines for our pen plot
   let lines = [];
 
   // Draw some circles expanding outward
   const steps = 5;
   const count = 20;
-  const spacing = 1;
-  const radius = 2;
+  const spacing = Math.min(width, height) * 0.05;
+  const radius = Math.min(width, height) * 0.25;
   for (let j = 0; j < count; j++) {
     const r = radius + j * spacing;
     const circle = [];
@@ -32,24 +33,14 @@ const sketch = ({ width, height }) => {
     lines.push(circle);
   }
 
-  return ({ context }) => {
-    // Fill background
-    context.fillStyle = 'white';
-    context.fillRect(0, 0, width, height);
+  // Clip all the lines to a margin
+  const margin = 1.0;
+  const box = [ margin, margin, width - margin, height - margin ];
+  lines = clipPolylinesToBox(lines, box);
 
-    // Draw content
-    lines.forEach(points => {
-      context.beginPath();
-      points.forEach(p => context.lineTo(p[0], p[1]));
-      context.stroke();
-    });
-
-    // Render Canvas + SVG files
-    return [
-      context.canvas,
-      { data: polylinesToSVG(lines, settings), extension: '.svg' }
-    ];
-  };
+  // The 'penplot' util includes a utility to render
+  // and export both PNG and SVG files
+  return props => renderPolylines(lines, props);
 };
 
 canvasSketch(sketch, settings);
