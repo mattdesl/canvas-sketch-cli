@@ -1,11 +1,13 @@
 const canvasSketch = require('canvas-sketch');
 const createRegl = require('regl');
 
-// Parameters for the sketch
 const settings = {
-  animate: true, // Optional: Enable the animation loop
-  context: 'webgl', // Setup WebGL instead of 2D canvas
-  attributes: { antialias: true } // Turn on MSAA
+  // Make the loop animated
+  animate: true,
+  // Get a WebGL canvas rather than 2D
+  context: 'webgl',
+  // Turn on MSAA
+  attributes: { antialias: true }
 };
 
 const sketch = ({ gl }) => {
