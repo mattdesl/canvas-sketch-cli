@@ -3,11 +3,15 @@ const NAMESPACE = 'canvas-sketch-cli';
 // Grab the CLI namespace
 window[NAMESPACE] = window[NAMESPACE] || {};
 
+
 if (!window[NAMESPACE].initialized) {
   initialize();
 }
 
 function initialize () {
+  // Awaiting enable/disable event
+  window[NAMESPACE].liveReloadEnabled = undefined;
+
   window[NAMESPACE].initialized = true;
 
   const defaultPostOptions = {
@@ -67,24 +71,64 @@ function initialize () {
       });
   };
 
-  if ('budo-livereload' in window && window[NAMESPACE].hot) {
-    console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reload Enabled`, 'color: #8e8e8e;', 'color: initial;');
-    let lastBundle;
+  if ('budo-livereload' in window) {
     const client = window['budo-livereload'];
     client.listen(data => {
-      if (data.event === 'eval') {
-        if (!data.error) {
-          client.clearError();
-        }
-        try {
-          eval(data.code);
-          if (!data.error) console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reloaded`, 'color: #8e8e8e;', 'color: initial;');
-        } catch (err) {
-          console.error(`%c[canvas-sketch-cli]%c 🚨 Hot Reload error`, 'color: #8e8e8e;', 'color: initial;');
-          console.error(err.toString());
-          client.showError(err.toString());
-        }
+      if (data.event === 'hot-reload') {
+        setupLiveReload(data.enabled);
       }
     });
+
+    // On first load, check to see if we should setup live reload or not
+    if (window[NAMESPACE].hot) {
+      setupLiveReload(true);
+    } else {
+      setupLiveReload(false);
+    }
+  }
+}
+
+function setupLiveReload (isEnabled) {
+  const previousState = window[NAMESPACE].liveReloadEnabled;
+  if (typeof previousState !== 'undefined' && isEnabled !== previousState) {
+    // We need to reload the page to ensure the new sketch function is
+    // named for hot reloading, and/or cleaned up after hot reloading is disabled
+    window.location.reload(true);
+    return;
+  }
+
+  if (isEnabled === window[NAMESPACE].liveReloadEnabled) {
+    // No change in state
+    return;
+  }
+
+  // Mark new state
+  window[NAMESPACE].liveReloadEnabled = isEnabled;
+
+  if (isEnabled) {
+    if ('budo-livereload' in window) {
+      console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reload Enabled`, 'color: #8e8e8e;', 'color: initial;');
+      const client = window['budo-livereload'];
+      client.listen(onClientData);
+    }
+  }
+}
+
+function onClientData (data) {
+  const client = window['budo-livereload'];
+  if (!client) return;
+
+  if (data.event === 'eval') {
+    if (!data.error) {
+      client.clearError();
+    }
+    try {
+      eval(data.code);
+      if (!data.error) console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reloaded`, 'color: #8e8e8e;', 'color: initial;');
+    } catch (err) {
+      console.error(`%c[canvas-sketch-cli]%c 🚨 Hot Reload error`, 'color: #8e8e8e;', 'color: initial;');
+      console.error(err.toString());
+      client.showError(err.toString());
+    }
   }
 }

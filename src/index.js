@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const path = require('path');
 const budo = require('budo');
+const rightNow = require('right-now');
 const prettyBytes = require('pretty-bytes');
 const prettyMs = require('pretty-ms');
 const downloads = require('downloads-folder');
@@ -378,6 +379,69 @@ const start = async () => {
       opt.entry
     ].filter(Boolean);
 
+    const applyReload = (app, wss) => {
+
+      // Because some editors & operating systems do atomic updates
+      // very quickly together on file save, you can end up with duplicate
+      // file change events from chokidar in some cases. We guard against
+      // this by not evaluating duplicate code that is run within a fraction
+      // of a second.
+      const chokidarThreshold = 150;
+
+      let firstUpdate = true;
+      let lastTime = Date.now();
+      let chokidarDelta = Infinity;
+
+      var lastBundle;
+      var hasError = false;
+
+      // Tell the active instances whether to enable or disable hot reloading
+      wss.on('connection', (socket) => {
+        socket.send(JSON.stringify({ event: 'hot-reload', enabled: hotReloading }));
+      });
+
+      // Hot reloading reacts on update, after bundle is finished
+      app.on('update', (code) => {
+        lastTime = rightNow();
+
+        if (hotReloading) {
+          code = code.toString();
+          if (chokidarDelta < chokidarThreshold && code === lastBundle) {
+            // We only do this chokidar guard when the bundle is the same.
+            // If the bundle is different, we definitely want to apply the changes!
+            return;
+          }
+          wss.clients.forEach(socket => {
+            socket.send(JSON.stringify({
+              event: 'eval',
+              error: hasError,
+              code
+            }));
+          });
+          lastBundle = code;
+        }
+      });
+
+      // Non-hot reloading reacts on pending, before bundle starts updating
+      // This makes the experience feel more instant
+      app.on('pending', () => {
+        const now = rightNow();
+        chokidarDelta = now - lastTime;
+        if (!hotReloading && chokidarDelta > chokidarThreshold) {
+          // We avoid duplicate reload events here with the chokidar threshold
+          app.reload();
+        }
+      });
+
+      app.on('pending', error => {
+        hasError = false;
+      });
+
+      app.on('bundle-error', error => {
+        hasError = true;
+      });
+    };
+
     const app = budo(entries, {
       browserifyArgs,
       open: argv.open,
@@ -392,9 +456,6 @@ const start = async () => {
       stream: argv.quiet ? null : process.stdout
     }).live()
       .watch()
-      .on('pending', () => {
-        if (!hotReloading) app.reload();
-      })
       .on('watch', (ev, file) => {
         app.reload(file);
       })
@@ -414,32 +475,7 @@ const start = async () => {
           });
         });
 
-        if (hotReloading) {
-          var lastBundle;
-          var hasError = false;
-          app.on('pending', error => {
-            hasError = false;
-          })
-
-          app.on('bundle-error', error => {
-            hasError = true;
-          })
-
-          app.on('update', (code) => {
-            code = code.toString();
-            if (code === lastBundle) {
-              return;
-            }
-            wss.clients.forEach(socket => {
-              socket.send(JSON.stringify({
-                event: 'eval',
-                error: hasError,
-                code
-              }));
-            });
-            lastBundle = code;
-          });
-        }
+        applyReload(app, wss);
       });
   }
 };
