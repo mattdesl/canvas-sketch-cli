@@ -380,7 +380,6 @@ const start = async () => {
     ].filter(Boolean);
 
     const applyReload = (app, wss) => {
-
       // Because some editors & operating systems do atomic updates
       // very quickly together on file save, you can end up with duplicate
       // file change events from chokidar in some cases. We guard against
@@ -411,9 +410,11 @@ const start = async () => {
             // If the bundle is different, we definitely want to apply the changes!
             return;
           }
+
           wss.clients.forEach(socket => {
             socket.send(JSON.stringify({
               event: 'eval',
+              src: jsUrl,
               error: hasError,
               code
             }));

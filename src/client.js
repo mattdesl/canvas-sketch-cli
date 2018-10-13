@@ -11,7 +11,6 @@ if (!window[NAMESPACE].initialized) {
 function initialize () {
   // Awaiting enable/disable event
   window[NAMESPACE].liveReloadEnabled = undefined;
-
   window[NAMESPACE].initialized = true;
 
   const defaultPostOptions = {
@@ -127,8 +126,16 @@ function onClientData (data) {
       if (!data.error) console.log(`%c[canvas-sketch-cli]%c ✨ Hot Reloaded`, 'color: #8e8e8e;', 'color: initial;');
     } catch (err) {
       console.error(`%c[canvas-sketch-cli]%c 🚨 Hot Reload error`, 'color: #8e8e8e;', 'color: initial;');
-      console.error(err.toString());
       client.showError(err.toString());
+
+      // This will also load up the problematic script so that stack traces with
+      // source maps is visible
+      const scriptElement = document.createElement('script');
+      scriptElement.onload = () => {
+        document.body.removeChild(scriptElement);
+      };
+      scriptElement.src = data.src;
+      document.body.appendChild(scriptElement);
     }
   }
 }
