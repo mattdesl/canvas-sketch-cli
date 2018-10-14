@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const path = require('path');
 const budo = require('budo');
+const defined = require('defined');
 const rightNow = require('right-now');
 const prettyBytes = require('pretty-bytes');
 const prettyMs = require('pretty-ms');
@@ -21,9 +22,10 @@ const { createLogger, getErrorDetails } = require('./logger');
 const html = require('./html');
 const terser = require('terser');
 const { EventEmitter } = require('events');
-const envify = require('loose-envify');
-const pluginResolve = require('./plugin-resolve');
-const transformInstaller = require('./transform-installer');
+const pluginEnv = require('./plugins/plugin-env');
+const pluginResolve = require('./plugins/plugin-resolve');
+const fromString = require('from2-string');
+// const transformInstaller = require('./plugins/transform-installer');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['template'],
@@ -214,8 +216,10 @@ const prepare = async (logger) => {
     output = cwd;
   }
 
+  const mode = defined(argv.mode, argv.build ? 'production' : 'development');
   const hot = Boolean(argv.hot);
   const params = Object.assign({}, argv, {
+    mode,
     browserifyArgs,
     output,
     logger,
@@ -224,8 +228,6 @@ const prepare = async (logger) => {
     cwd,
     installer: new EventEmitter()
   });
-
-  const isProd = argv.mode === 'production';
 
   browserifyArgs.push(
     // Add in ESM support
@@ -247,15 +249,10 @@ const prepare = async (logger) => {
     },
     // Add in glslify and make it resolve to here
     '-g', require.resolve('glslify'),
+    // A plugin that handles resolving some modules to this CLI tool
     '-p', pluginResolve(params),
-    '-p', bundler => {
-      const global = isProd ? true : undefined;
-      bundler.transform(envify, {
-        global,
-        NODE_ENV: isProd ? 'production' : 'development',
-        SKETCH_ENTRY: path.relative(cwd, entry)
-      });
-    }
+    // Also add in some envify tools
+    '-p', pluginEnv(params)
   );
 
   // TODO: Figure out a nice way to install automatically
@@ -373,9 +370,9 @@ const start = async () => {
     const entries = [
       // Could find a cleaner way to pass down props
       // to client scripts...
-      opt.output ? require.resolve('./client-enable-output.js') : undefined,
-      hotReloading ? require.resolve('./client-enable-hot.js') : undefined,
-      require.resolve('./client.js'),
+      opt.output ? require.resolve('./instrumentation/client-enable-output.js') : undefined,
+      hotReloading ? require.resolve('./instrumentation/client-enable-hot.js') : undefined,
+      require.resolve('./instrumentation/client.js'),
       opt.entry
     ].filter(Boolean);
 
@@ -387,7 +384,6 @@ const start = async () => {
       // of a second.
       const chokidarThreshold = 150;
 
-      let firstUpdate = true;
       let lastTime = Date.now();
       let chokidarDelta = Infinity;
 
@@ -434,11 +430,12 @@ const start = async () => {
         }
       });
 
-      app.on('pending', error => {
+      app.on('pending', () => {
         hasError = false;
       });
 
-      app.on('bundle-error', error => {
+      app.on('bundle-error', (err) => {
+        console.log('bundle error\n' + err.toString());
         hasError = true;
       });
     };

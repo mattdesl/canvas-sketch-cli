@@ -1,5 +1,5 @@
 const path = require('path');
-const { isCanvasSketchPackage, needsUpdate } = require('./util');
+const { isCanvasSketchPackage, needsUpdate } = require('../util');
 const chalk = require('chalk');
 
 module.exports = function createPlugin (settings = {}) {
