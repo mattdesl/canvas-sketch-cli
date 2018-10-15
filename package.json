@@ -5,6 +5,7 @@
   "main": "./src/index.js",
   "bin": {
     "canvas-sketch": "./src/index.js",
+    "canvas-sketch-cli": "./src/index.js",
     "canvas-sketch-gif": "./src/ffmpeg-gif.js",
     "canvas-sketch-mp4": "./src/ffmpeg-mp4.js"
   },
