@@ -25,6 +25,7 @@ const { EventEmitter } = require('events');
 const pluginEnv = require('./plugins/plugin-env');
 const pluginResolve = require('./plugins/plugin-resolve');
 const fromString = require('from2-string');
+const pluginGLSL = require('./plugins/plugin-glsl');
 // const transformInstaller = require('./plugins/transform-installer');
 
 const argv = require('minimist')(process.argv.slice(2), {
@@ -221,6 +222,7 @@ const prepare = async (logger) => {
   const params = Object.assign({}, argv, {
     mode,
     browserifyArgs,
+    extensions: pluginGLSL.extensions,
     output,
     logger,
     hot,
@@ -247,6 +249,7 @@ const prepare = async (logger) => {
         nodeModules: false
       }));
     },
+    '-g', pluginGLSL(params),
     // Add in glslify and make it resolve to here
     '-g', require.resolve('glslify'),
     // A plugin that handles resolving some modules to this CLI tool
@@ -435,7 +438,6 @@ const start = async () => {
       });
 
       app.on('bundle-error', (err) => {
-        console.log('bundle error\n' + err.toString());
         hasError = true;
       });
     };

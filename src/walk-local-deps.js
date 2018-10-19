@@ -17,6 +17,7 @@ const pluginCJS = require('@babel/plugin-transform-modules-commonjs');
 const resolve = promisify(require('resolve'));
 const readFile = promisify(fs.readFile);
 const isLocal = /^[./\\/]/;
+const extensions = ['.js', '.jsx', '.es6', '.es'];
 
 module.exports = async (entry, opt = {}) => {
   const maxDepth = defined(opt.maxDepth, Infinity);
@@ -26,6 +27,11 @@ module.exports = async (entry, opt = {}) => {
   const walk = async (file, src, curDepth = 0) => {
     // mark this file as checked
     checked.push(file);
+
+    const ext = (path.extname(file) || '').toLowerCase();
+    if (!extensions.includes(ext)) {
+      return;
+    }
 
     if (typeof src === 'undefined') {
       src = await readFile(file, 'utf-8');

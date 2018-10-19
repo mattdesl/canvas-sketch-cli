@@ -2,7 +2,7 @@ const path = require('path');
 const through = require('through2');
 const duplexer = require('duplexer2');
 const concatStream = require('concat-stream');
-const relativePath = require('cached-path-relative');
+// const relativePath = require('cached-path-relative');
 const install = require('../install');
 
 // Utility -> true if path is a top-level node_modules (i.e. not in source)

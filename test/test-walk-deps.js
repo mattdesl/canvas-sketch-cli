@@ -53,9 +53,15 @@ test('should walk local deps with depth', async t => {
 test('should walk local deps with entry source code', async t => {
   t.plan(1);
   const dependencies = await walk(path.resolve(__dirname, 'fixtures/depth-0.js'), {
-    entrySrc: `require('foobar'); require('./depth-1');`
+    entrySrc: `require('foobar');`
   });
   t.deepEqual(dependencies, [
-    'foobar', './depth-1', 'http', './depth-2'
+    'foobar'
   ]);
+});
+
+test('should ignore non JS files', async t => {
+  t.plan(1);
+  const dependencies = await walk(path.resolve(__dirname, 'fixtures/shader-require.js'));
+  t.deepEqual(dependencies, [ './shader.glsl' ]);
 });
