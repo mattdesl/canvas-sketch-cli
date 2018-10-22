@@ -62,14 +62,15 @@ const sketch = ({ context }) => {
       camera.aspect = viewportWidth / viewportHeight;
       camera.updateProjectionMatrix();
     },
-    // And render events here
-    render ({ time, deltaTime }) {
+    // Update & render your scene here
+    render ({ time }) {
       mesh.rotation.y = time * (10 * Math.PI / 180);
       controls.update();
       renderer.render(scene, camera);
     },
-    // Dispose of WebGL context (optional)
+    // Dispose of events & renderer for cleaner hot-reloading
     unload () {
+      controls.dispose();
       renderer.dispose();
     }
   };
