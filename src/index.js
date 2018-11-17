@@ -121,6 +121,11 @@ const prepare = async (logger) => {
     let filepath;
     if (entry) {
       filepath = path.isAbsolute(entry) ? path.resolve(entry) : path.resolve(cwd, entry);
+
+      // ensure a file extension is present. If not, automatically add .js
+      if (!path.extname(entry)) {
+        filepath = `${filepath}.js`;
+      }
     } else {
       filepath = path.resolve(cwd, sketchDirectory, generateFileName(prefix));
     }
