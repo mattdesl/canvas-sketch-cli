@@ -50,7 +50,8 @@ const start = async (args, overrides = {}) => {
       'quiet',
       'build',
       'version',
-      'inline'
+      'inline',
+      'watching'
     ],
     alias: {
       version: 'v',
@@ -66,6 +67,7 @@ const start = async (args, overrides = {}) => {
     },
     '--': true,
     default: {
+      watching: true,
       install: true,
       template: 'default'
     }
@@ -289,8 +291,7 @@ const start = async (args, overrides = {}) => {
       defaultIndex: () => html.stream(htmlOpts),
       dir,
       stream: argv.quiet ? null : process.stdout
-    }).live()
-      .watch()
+    })
       .on('watch', (ev, file) => {
         app.reload(file);
       })
@@ -298,20 +299,25 @@ const start = async (args, overrides = {}) => {
         // Here we do some things like notify the clients that a module is being
         // installed.
         const wss = ev.webSocketServer;
-        const installEvents = [ 'install-start', 'install-end' ];
-        installEvents.forEach(key => {
-          opt.installer.on(key, ({ modules }) => {
-            app.error(key === 'install-start'
-              ? `Installing modules from npm: ${modules.join(', ')}`
-              : `Reloading...`);
-            wss.clients.forEach(socket => {
-              socket.send(JSON.stringify({ event: key }));
+        if (wss) {
+          const installEvents = [ 'install-start', 'install-end' ];
+          installEvents.forEach(key => {
+            opt.installer.on(key, ({ modules }) => {
+              app.error(key === 'install-start'
+                ? `Installing modules from npm: ${modules.join(', ')}`
+                : `Reloading...`);
+              wss.clients.forEach(socket => {
+                socket.send(JSON.stringify({ event: key }));
+              });
             });
           });
-        });
-
-        applyReload(app, wss);
+          applyReload(app, wss);
+        }
       });
+
+    if (argv.watching !== false) {
+      app.live().watch();
+    }
 
     return app;
   }
