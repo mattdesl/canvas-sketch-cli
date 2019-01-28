@@ -479,7 +479,7 @@ const start = async (args, overrides = {}) => {
           // that have decided to publish with ESM, which isn't even standard yet!
           // So, we will only support ESM in local code for canvas-sketch.
           nodeModules: false,
-          logFile: true
+          logFile: argv.logFile
         }));
       },
       '-g', pluginGLSL(params),
