@@ -478,7 +478,8 @@ const start = async (args, overrides = {}) => {
           // tree is extremely slow, and only fixes a few problematic modules
           // that have decided to publish with ESM, which isn't even standard yet!
           // So, we will only support ESM in local code for canvas-sketch.
-          nodeModules: false
+          nodeModules: false,
+          logFile: true
         }));
       },
       '-g', pluginGLSL(params),

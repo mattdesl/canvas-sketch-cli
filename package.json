@@ -33,7 +33,7 @@
     "defined": "^1.0.0",
     "downloads-folder": "^1.0.1",
     "duplexer2": "^0.1.4",
-    "esmify": "^2.0.0",
+    "esmify": "^2.1.0",
     "filenamify": "^2.1.0",
     "from2-string": "^1.1.0",
     "get-stdin": "^6.0.0",
