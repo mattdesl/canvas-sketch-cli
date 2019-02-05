@@ -51,7 +51,8 @@ const start = async (args, overrides = {}) => {
       'build',
       'version',
       'inline',
-      'watching'
+      'watching',
+      'client'
     ],
     alias: {
       version: 'v',
@@ -69,6 +70,7 @@ const start = async (args, overrides = {}) => {
     default: {
       watching: true,
       install: true,
+      client: true,
       template: 'default'
     }
   });
@@ -134,7 +136,7 @@ const start = async (args, overrides = {}) => {
 
     // Create bundler from CLI options
     const bundler = browserifyFromArgs(opt.browserifyArgs, {
-      debug: !compress,
+      debug: typeof opt.debug === 'boolean' ? opt.debug : !compress,
       entries: opt.entry
     });
 
@@ -212,7 +214,7 @@ const start = async (args, overrides = {}) => {
       // to client scripts...
       opt.output ? require.resolve('./instrumentation/client-enable-output.js') : undefined,
       hotReloading ? require.resolve('./instrumentation/client-enable-hot.js') : undefined,
-      require.resolve('./instrumentation/client.js'),
+      opt.client !== false ? require.resolve('./instrumentation/client.js') : undefined,
       opt.entry
     ].filter(Boolean);
 

@@ -3,7 +3,6 @@ const NAMESPACE = 'canvas-sketch-cli';
 // Grab the CLI namespace
 window[NAMESPACE] = window[NAMESPACE] || {};
 
-
 if (!window[NAMESPACE].initialized) {
   initialize();
 }
