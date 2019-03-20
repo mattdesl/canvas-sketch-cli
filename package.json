@@ -1,6 +1,6 @@
 {
   "name": "canvas-sketch-cli",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "A CLI used alongside canvas-sketch",
   "main": "./src/index.js",
   "bin": {
