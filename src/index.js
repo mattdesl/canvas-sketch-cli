@@ -114,13 +114,14 @@ const start = async (args, overrides = {}) => {
 
   const fileName = opt.name || path.basename(opt.entry);
   const fileNameBase = path.basename(fileName, path.extname(fileName));
+  const fileNameJS = `${fileNameBase}.js`;
 
-  const jsUrl = opt.js || encodeURIComponent(fileName);
+  let jsUrl = opt.js || encodeURIComponent(fileNameJS);
   const htmlOpts = { file: htmlFile, src: jsUrl };
 
   if (opt.build) {
     const compress = argv.compress !== false;
-    const jsOutFile = path.resolve(dir, `${fileNameBase}.js`);
+    const jsOutFile = path.resolve(dir, fileNameJS);
     if (jsOutFile === opt.entry) {
       throw new Error(`The input and ouput JS files are the same: ${chalk.bold(path.relative(cwd, jsOutFile))}`);
     }
