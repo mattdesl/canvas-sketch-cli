@@ -117,7 +117,7 @@ const start = async (args, overrides = {}) => {
   const fileNameJS = `${fileNameBase}.js`;
 
   let jsUrl = opt.js || encodeURIComponent(fileNameJS);
-  const htmlOpts = { file: htmlFile, src: jsUrl };
+  const htmlOpts = { file: htmlFile, src: jsUrl, title: opt.title };
 
   if (opt.build) {
     const compress = argv.compress !== false;

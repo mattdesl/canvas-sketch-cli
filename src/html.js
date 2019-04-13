@@ -12,6 +12,7 @@ const readFile = promisify(fs.readFile);
 function transform (htmlData, opt = {}) {
   htmlData = maxstache(htmlData, {
     src: opt.src,
+    title: opt.title || 'canvas-sketch',
     entry: opt.inline
       ? `<script>${opt.code}</script>`
       : `<script src="${opt.src}"></script>`
