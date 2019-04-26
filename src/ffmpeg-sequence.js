@@ -171,7 +171,7 @@ async function convertMP4 (opt = {}) {
     '-profile:v', 'high',
     '-crf', '18',
     '-pix_fmt', 'yuvj420p',
-    '-x264opts', 'YCgCo',
+    // '-x264opts', 'YCgCo',
     ss,
     t,
     opt.output
