@@ -113,7 +113,7 @@ const start = async (args, overrides = {}) => {
   }
 
   const fileName = (opt.name && typeof opt.name === 'string') ? opt.name : path.basename(opt.entry);
-  const fileNameBase = /\.js$/i.test(fileName) ? path.basename(fileName, path.extname(fileName)) : fileName;
+  const fileNameBase = /\.(ts|js|mjs|es|jsx|tsx|es6)$/i.test(fileName) ? path.basename(fileName, path.extname(fileName)) : fileName;
   const fileNameJS = `${fileNameBase}.js`;
 
   let jsUrl = opt.js || encodeURIComponent(fileNameJS);
