@@ -112,12 +112,12 @@ const start = async (args, overrides = {}) => {
     throw err;
   }
 
-  const fileName = opt.name || path.basename(opt.entry);
-  const fileNameBase = path.basename(fileName, path.extname(fileName));
+  const fileName = (opt.name && typeof opt.name === 'string') ? opt.name : path.basename(opt.entry);
+  const fileNameBase = /\.js$/i.test(fileName) ? path.basename(fileName, path.extname(fileName)) : fileName;
   const fileNameJS = `${fileNameBase}.js`;
 
   let jsUrl = opt.js || encodeURIComponent(fileNameJS);
-  const htmlOpts = { file: htmlFile, src: jsUrl, title: opt.title };
+  const htmlOpts = { file: htmlFile, src: jsUrl, title: opt.title || fileName };
 
   if (opt.build) {
     const compress = argv.compress !== false;
