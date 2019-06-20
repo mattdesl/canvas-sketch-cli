@@ -168,8 +168,8 @@ function createMP4Stream (opt = {}) {
   opt = Object.assign({ format: 'mp4' }, defaults, opt);
 
   const quiet = opt.quiet;
-  const args = buildMP4Args(opt, true);
-
+  const imageFormat = opt.imageFormat || 'png';
+  const args = buildMP4Args(opt, true, imageFormat);
   let ffmpegStdin;
 
   const promise = new Promise((resolve, reject) => {
@@ -179,9 +179,8 @@ function createMP4Stream (opt = {}) {
 
     if (!quiet) {
       stdout.pipe(process.stdout);
+      stderr.pipe(process.stderr);
     }
-
-    stderr.pipe(process.stderr);
 
     stdin.on('error', (err) => {
       if (err.code !== 'EPIPE') {
@@ -199,6 +198,7 @@ function createMP4Stream (opt = {}) {
   });
 
   return {
+    imageFormat,
     stream: ffmpegStdin,
     end () {
       ffmpegStdin.end();
@@ -207,7 +207,7 @@ function createMP4Stream (opt = {}) {
   };
 }
 
-function buildMP4Args (opt = {}, isStream = false) {
+function buildMP4Args (opt = {}, isStream = false, streamFormat = 'png') {
   var ss = opt.start != null ? [ '-ss', opt.start ] : '';
   var t = opt.time != null ? [ '-t', opt.time ] : '';
   var fps = 'fps=' + (opt.fps) + '';
@@ -234,7 +234,7 @@ function buildMP4Args (opt = {}, isStream = false) {
   var outFPSCommand = outFPS != null ? [ '-r', String(outFPS) ] : false;
 
   const inputArgs = isStream
-    ? [ '-f', 'image2pipe', '-c:v', 'png', '-i', '-' ]
+    ? [ '-f', 'image2pipe', '-c:v', streamFormat, '-i', '-' ]
     : [ '-i', opt.input ];
 
   return [
