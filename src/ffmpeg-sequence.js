@@ -6,19 +6,24 @@ const { promisify } = require('util');
 const rimraf = promisify(require('rimraf'));
 const { spawnAsync, generateFileName } = require('./util');
 const chalk = require('chalk');
+const spawn = require('cross-spawn');
 const minimist = require('minimist');
 const { createLogger, getErrorDetails } = require('./logger');
 const mkdirp = promisify(require('mkdirp'));
 const commandExists = require('command-exists');
 
+const defaults = {
+  cmd: 'ffmpeg',
+  fps: 24
+};
+
 module.exports.args = (opt = {}) => {
   const argv = minimist(process.argv.slice(2), {
     boolean: [ 'quiet', 'force' ],
-    default: {
-      cmd: 'ffmpeg',
-      fps: 24
-    },
+    default: defaults,
     alias: {
+      inputFPS: [ 'input-fps' ],
+      outputFPS: [ 'output-fps' ],
       force: [ 'f', 'y', 'yes' ],
       format: 'F',
       fps: [ 'r', 'rate' ],
@@ -154,29 +159,102 @@ module.exports.convert = async (opt = {}) => {
 };
 
 async function convertMP4 (opt = {}) {
+  const args = buildMP4Args(opt, false);
+  return spawnAsync(opt.cmd, args);
+}
+
+module.exports.createMP4Stream = createMP4Stream;
+function createMP4Stream (opt = {}) {
+  opt = Object.assign({ format: 'mp4' }, defaults, opt);
+
+  const quiet = opt.quiet;
+  const args = buildMP4Args(opt, true);
+
+  let ffmpegStdin;
+
+  const promise = new Promise((resolve, reject) => {
+    const ffmpeg = spawn(opt.cmd, args)
+    const { stdin, stdout, stderr } = ffmpeg;
+    ffmpegStdin = stdin;
+
+    if (!quiet) {
+      stdout.pipe(process.stdout);
+    }
+
+    stderr.pipe(process.stderr);
+
+    stdin.on('error', (err) => {
+      if (err.code !== 'EPIPE') {
+        return reject(err);
+      }
+    });
+
+    ffmpeg.on('exit', async (status) => {
+      if (status) {
+        return reject(new Error(`FFmpeg exited with status ${status}`));
+      } else {
+        return resolve();
+      }
+    });
+  });
+
+  return {
+    stream: ffmpegStdin,
+    end () {
+      ffmpegStdin.end();
+      return promise;
+    }
+  };
+}
+
+function buildMP4Args (opt = {}, isStream = false) {
   var ss = opt.start != null ? [ '-ss', opt.start ] : '';
   var t = opt.time != null ? [ '-t', opt.time ] : '';
   var fps = 'fps=' + (opt.fps) + '';
   var scale = opt.scale != null ? ('scale=' + opt.scale) : '';
   var filterStr = [ fps, scale ].filter(Boolean).join(',');
   var filter1 = [ '-vf', filterStr ];
-  const args = [
-    '-framerate', String(opt.fps),
-    '-i', opt.input,
+  var inFPS, outFPS;
+
+  if (typeof opt.inputFPS === 'number' && isFinite(opt.inputFPS)) {
+    // if user specifies --input-fps, take precedence over --fps / -r
+    inFPS = opt.inputFPS;
+  } else {
+    // otherwise, use --fps or the default 24 fps
+    inFPS = opt.fps;
+  }
+
+  // allow user to specify output rate, otherwise default to omitting it
+  if (typeof opt.outputFPS === 'number' && isFinite(opt.outputFPS)) {
+    outFPS = opt.outputFPS;
+  }
+
+  // build FPS commands
+  var inFPSCommand = [ '-framerate', String(inFPS) ];
+  var outFPSCommand = outFPS != null ? [ '-r', String(outFPS) ] : false;
+
+  const inputArgs = isStream
+    ? [ '-f', 'image2pipe', '-c:v', 'png', '-i', '-' ]
+    : [ '-i', opt.input ];
+
+  return [
+    inFPSCommand,
+    inputArgs,
     filter1,
     '-y',
     '-an',
     '-preset', 'slow',
     '-c:v', 'libx264',
+    '-movflags', 'faststart',
     '-profile:v', 'high',
     '-crf', '18',
-    '-pix_fmt', 'yuvj420p',
+    '-pix_fmt', 'yuv420p',
     // '-x264opts', 'YCgCo',
     ss,
     t,
+    outFPSCommand,
     opt.output
   ].filter(Boolean).reduce(flat, []);
-  return spawnAsync(opt.cmd, args);
 }
 
 async function convertGIF (opt = {}) {

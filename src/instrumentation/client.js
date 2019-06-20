@@ -42,6 +42,46 @@ function initialize () {
     });
   };
 
+  const stream = (url, opts) => {
+    opts = opts || {};
+
+    return window.fetch(url, Object.assign({}, defaultPostOptions, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        save: opts.save,
+        encoding: opts.encoding,
+        timeStamp: opts.timeStamp,
+        fps: opts.fps,
+        filename: opts.filename
+      })
+    }))
+      .then(res => {
+        if (res.status === 200) {
+          return res.json();
+        } else {
+          return res.text().then(text => {
+            throw new Error(text);
+          });
+        }
+      }).catch(err => {
+        // Some issue, just bail out and return nil hash
+        console.warn(`There was a problem starting the stream export`);
+        console.error(err);
+        return undefined;
+      });
+  };
+
+  // File streaming utility
+  window[NAMESPACE].streamStart = (opts) => {
+    return stream('/canvas-sketch-cli/stream-start', opts);
+  };
+
+  window[NAMESPACE].streamEnd = (opts) => {
+    return stream('/canvas-sketch-cli/stream-end', opts);
+  };
+
   // git commit utility
   window[NAMESPACE].commit = () => {
     return window.fetch('/canvas-sketch-cli/commit', defaultPostOptions)
