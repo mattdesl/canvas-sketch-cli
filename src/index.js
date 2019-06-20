@@ -2,7 +2,7 @@
 const path = require('path');
 const budo = require('budo');
 const defined = require('defined');
-const parseArgs = require('minimist');
+const parseArgs = require('subarg');
 const rightNow = require('right-now');
 const prettyBytes = require('pretty-bytes');
 const prettyMs = require('pretty-ms');
@@ -64,6 +64,7 @@ const start = async (args, overrides = {}) => {
       install: 'I',
       force: 'f',
       template: 't',
+      stream: 'S',
       new: 'n'
     },
     '--': true,
@@ -77,6 +78,27 @@ const start = async (args, overrides = {}) => {
 
   // Merge in user options
   Object.assign(argv, overrides);
+
+  // Handle stream subargs
+  if (typeof argv.stream === 'string') {
+    argv.stream = {
+      format: argv.stream
+    };
+  } else if (argv.stream === true) {
+    argv.stream = {
+      format: 'mp4'
+    };
+  } else if (argv.stream && typeof argv.stream === 'object') {
+    argv.stream.format = argv.stream._;
+    delete argv.stream._;
+  }
+
+  // Handle array -> single string
+  if (argv.stream) {
+    if (Array.isArray(argv.stream.format)) {
+      argv.stream.format = argv.stream.format[0] || 'mp4';
+    }
+  }
 
   if (argv.version) {
     console.log(require('../package.json').version);

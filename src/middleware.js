@@ -1,5 +1,5 @@
 const commit = require('./commit');
-const { createMP4Stream } = require('./ffmpeg-sequence');
+const { createStream } = require('./ffmpeg-sequence');
 const path = require('path');
 const Busboy = require('busboy');
 const fs = require('fs');
@@ -10,10 +10,15 @@ module.exports = (opt = {}) => {
   const logger = opt.logger;
   const quiet = opt.quiet;
   const output = opt.output;
-  const cwd = opt.cwd;
+  const streamOpt = opt.stream || {};
+  const stream = streamOpt.format;
+
+  if (stream && (stream !== 'gif' && stream !== 'mp4')) {
+    throw new Error('Currently the --stream flag must be either gif, mp4, or --no-stream (default)');
+  }
 
   let currentStream, currentStreamFilename;
-  let isStreaming = true;
+  let isStreaming = Boolean(stream);
 
   const logError = err => {
     logger.error(err);
@@ -107,21 +112,24 @@ module.exports = (opt = {}) => {
 
     stopCurrentStream().then(() => {
       const encoding = opt.encoding || 'image/png';
-      let imageFormat = parseMP4ImageEncoding(encoding);
-      if (!imageFormat) {
-        return sendError(res, 'Could not start MP4 stream, you must use image/png encoding or image/jpeg');
+      if (encoding !== 'image/png' && encoding !== 'image/jpeg') {
+        return sendError(res, 'Could not start MP4 stream, you must use "image/png" or "image/jpeg" encoding');
       }
 
-      currentStreamFilename = path.basename(opt.filename);
-      const filePath = path.join(output, currentStreamFilename);
+      const format = stream;
+      const fileName = `${path.basename(opt.filename, path.extname(opt.filename))}.${format}`;
+      const filePath = path.join(output, fileName);
 
-      currentStream = createMP4Stream({
-        imageFormat,
+      currentStream = createStream({
+        ...streamOpt,
+        format,
+        encoding,
         quiet: String(process.env.DEBUG_FFMPEG) !== '1',
         fps: opt.fps,
         output: filePath
       });
 
+      currentStreamFilename = fileName;
       respond(res, resOpt);
     });
   }
@@ -147,12 +155,6 @@ module.exports = (opt = {}) => {
     }
   }
 
-  function parseMP4ImageEncoding (mime) {
-    if (mime === 'image/png') return 'png';
-    if (mime === 'image/jpeg') return 'mjpeg';
-    return null;
-  }
-
   function handleSaveBlob (req, res, next) {
     if (!output) {
       return sendError(res, `Error trying to saveBlob, the --output flag has been disabled`);
@@ -165,32 +167,34 @@ module.exports = (opt = {}) => {
     let responded = false;
     let fileWritePromise = Promise.resolve();
     const usingStream = Boolean(isStreaming && currentStream);
-    busboy.once('file', (field, file, name, encoding, mimetype) => {
+    busboy.once('file', (field, file, name, enc, mimeType) => {
       fileWritePromise = new Promise((resolve, reject) => {
         mkdirp(output, err => {
           if (err) return reject(err);
 
+          filename = path.basename(name);
+          const filePath = path.join(output, filename);
+          const curFileName = filename;
+
           if (usingStream) {
+            if (mimeType && mimeType !== currentStream.encoding) {
+              reject(new Error('Error: Currently only single-image exports in image/png or image/jpeg format is supported with MP4 streaming'));
+            }
+
             filename = currentStreamFilename;
-            if (currentStream.stream.writable) {
-              const newFormat = parseMP4ImageEncoding(mimetype);
-              if (newFormat !== currentStream.imageFormat) {
-                reject(new Error('Error: Currently only single-image exports in image/png or image/jpeg format is supported with MP4 streaming'));
-              } else {
-                file.pipe(currentStream.stream, { end: false });
-                file.once('end', resolve);
-                file.once('error', reject);
-              }
+
+            if (currentStream) {
+              currentStream.writeFrame(file, curFileName)
+                .then(() => resolve())
+                .catch(err => reject(err));
             } else {
-              reject(new Error('WARN: MP4 stream is no longer writable'));
+              reject(new Error('WARN: MP4 stream stopped early'));
             }
           } else {
-            filename = path.basename(name);
-            const filePath = path.join(output, filename);
             const writer = fs.createWriteStream(filePath);
-            const piped = file.pipe(writer);
+            const stream = file.pipe(writer);
             writer.once('error', reject);
-            piped.once('error', reject);
+            stream.once('error', reject);
             writer.once('finish', resolve);
           }
         });

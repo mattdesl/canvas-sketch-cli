@@ -11,6 +11,8 @@ const minimist = require('minimist');
 const { createLogger, getErrorDetails } = require('./logger');
 const mkdirp = promisify(require('mkdirp'));
 const commandExists = require('command-exists');
+const tempy = require('tempy');
+const defined = require('defined');
 
 const defaults = {
   cmd: 'ffmpeg',
@@ -163,14 +165,74 @@ async function convertMP4 (opt = {}) {
   return spawnAsync(opt.cmd, args);
 }
 
+module.exports.createStream = function (opt = {}) {
+  return opt.format === 'gif' ? createGIFStream(opt) : createMP4Stream(opt);
+};
+
+module.exports.createGIFStream = createGIFStream;
+function createGIFStream (opt = {}) {
+  opt = Object.assign({ format: 'gif' }, defaults, opt);
+  const encoding = opt.encoding || 'image/png';
+  const tmpDir = tempy.directory();
+
+  let digitCount;
+  let framesProcessed = 0;
+  let extension;
+
+  return {
+    encoding,
+    writeFrame (file, filename) {
+      return new Promise((resolve, reject) => {
+        framesProcessed++;
+
+        // Grab the digit count while we write the first frames
+        if (!digitCount) {
+          const digits = /([0-9]+)/.exec(filename);
+          const digitStr = digits && digits[1];
+          if (!digits || !digitStr || digitStr.length <= 0) {
+            return reject(new Error(`Filename ${filename} must be in a format with digits, such as 000.png`));
+          }
+          digitCount = digitStr.length;
+        }
+
+        // Grab extension of frames, e.g. jpg/jpeg/png
+        if (!extension) {
+          extension = path.extname(filename);
+        }
+
+        // Write to temporary directory
+        const filePath = path.join(tmpDir, filename);
+        const writer = fs.createWriteStream(filePath);
+        const stream = file.pipe(writer);
+        writer.once('error', reject);
+        stream.once('error', reject);
+        writer.once('finish', resolve);
+      });
+    },
+    async end () {
+      if (framesProcessed === 0) {
+        throw new Error('No frames processed');
+      }
+      const input = path.join(tmpDir, `%0${digitCount}d${extension}`);
+      await convertGIF({
+        ...opt,
+        input
+      });
+      // cleanup tmp dir
+      await rimraf(tmpDir);
+    }
+  };
+}
+
 module.exports.createMP4Stream = createMP4Stream;
 function createMP4Stream (opt = {}) {
   opt = Object.assign({ format: 'mp4' }, defaults, opt);
 
+  const encoding = opt.encoding || 'image/png';
   const quiet = opt.quiet;
-  const imageFormat = opt.imageFormat || 'png';
-  const args = buildMP4Args(opt, true, imageFormat);
+  const args = buildMP4Args(opt, true);
   let ffmpegStdin;
+  let framesProcessed = 0;
 
   const promise = new Promise((resolve, reject) => {
     const ffmpeg = spawn(opt.cmd, args)
@@ -198,16 +260,36 @@ function createMP4Stream (opt = {}) {
   });
 
   return {
-    imageFormat,
+    encoding,
     stream: ffmpegStdin,
+    writeFrame (readableStream) {
+      return new Promise((resolve, reject) => {
+        framesProcessed++;
+        if (ffmpegStdin.writable) {
+          readableStream.pipe(ffmpegStdin, { end: false });
+          readableStream.once('end', resolve);
+          readableStream.once('error', reject);
+        } else {
+          reject(new Error('WARN: MP4 stream is no longer writable'));
+        }
+      });
+    },
     end () {
       ffmpegStdin.end();
-      return promise;
+      return promise.then(() => {
+        if (framesProcessed === 0) return Promise.reject(new Error('No frames processed'));
+      });
     }
   };
 }
 
-function buildMP4Args (opt = {}, isStream = false, streamFormat = 'png') {
+function parseMP4ImageEncoding (encoding) {
+  if (encoding === 'image/png') return 'png';
+  if (encoding === 'image/jpeg') return 'mjpeg';
+  return null;
+}
+
+function buildMP4Args (opt = {}, isStream = false) {
   var ss = opt.start != null ? [ '-ss', opt.start ] : '';
   var t = opt.time != null ? [ '-t', opt.time ] : '';
   var fps = 'fps=' + (opt.fps) + '';
@@ -233,6 +315,7 @@ function buildMP4Args (opt = {}, isStream = false, streamFormat = 'png') {
   var inFPSCommand = [ '-framerate', String(inFPS) ];
   var outFPSCommand = outFPS != null ? [ '-r', String(outFPS) ] : false;
 
+  const streamFormat = parseMP4ImageEncoding(opt.encoding || 'image/png');
   const inputArgs = isStream
     ? [ '-f', 'image2pipe', '-c:v', streamFormat, '-i', '-' ]
     : [ '-i', opt.input ];
@@ -258,37 +341,34 @@ function buildMP4Args (opt = {}, isStream = false, streamFormat = 'png') {
 }
 
 async function convertGIF (opt = {}) {
-  var suffix = '__tmp__palette_' + Date.now() + '.png';
-  var tmpFileName = path.basename(opt.output, path.extname(opt.output)) + suffix;
-  var tmpFile = path.join(path.dirname(opt.output), tmpFileName);
+  opt = Object.assign({}, defaults, opt);
 
-  var ss = opt.start != null ? [ '-ss', opt.start ] : '';
-  var t = opt.time != null ? [ '-t', opt.time ] : '';
-  var inputFlag = [ '-i', opt.input ];
-  var fps = 'fps=' + (opt.fps) + '';
-  var scale = opt.scale ? ('scale=' + opt.scale + ':flags=lanczos') : '';
-  var filterStr = [ fps, scale ].filter(Boolean).join(',');
-  var filter1 = [ '-vf', filterStr + ',palettegen' ];
-  var filter2 = [ '-filter_complex', filterStr + '[x];[x][1:v]paletteuse' ];
+  const tmpFile = tempy.file({ extension: '.png' });
 
-  var pass1Flags = [ '-y', ss, t, inputFlag, filter1, tmpFile ].filter(Boolean).reduce(flat, []);
-  var pass2Flags = [ '-y', ss, t, inputFlag, '-i', tmpFile, filter2, '-f', 'gif', opt.output ].filter(Boolean).reduce(flat, []);
-  var needsCleanup = true;
+  const ss = opt.start != null ? [ '-ss', String(opt.start) ] : '';
+  const t = opt.time != null ? [ '-t', String(opt.time) ] : '';
+  const inputFlag = [ '-i', opt.input ];
+  const fps = 'fps=' + defined(opt.fps, defaults.fps) + '';
+  let scale = '';
+  if (opt.scale) {
+    const scaleStr = Array.isArray(opt.scale) ? opt.scale.join(':') : String(opt.scale);
+    scale = `scale=${scaleStr}:flags=lanczos`;
+  }
+  const filterStr = [ fps, scale ].filter(Boolean).join(',');
+  const filter1 = [ '-vf', filterStr + ',palettegen' ];
+  const filter2 = [ '-filter_complex', filterStr + '[x];[x][1:v]paletteuse' ];
+
+  const pass1Flags = [ '-y', ss, t, inputFlag, filter1, tmpFile ].filter(Boolean).reduce(flat, []);
+  const pass2Flags = [ '-y', ss, t, inputFlag, '-i', tmpFile, filter2, '-f', 'gif', opt.output ].filter(Boolean).reduce(flat, []);
+  let needsCleanup = true;
 
   function finish () {
     if (!needsCleanup) return;
-    rimraf.sync(tmpFileName);
+    rimraf.sync(tmpFile);
     needsCleanup = false;
   }
 
-  process.on('exit', () => {
-    finish();
-  });
-
-  process.on('SIGINT', (code) => {
-    finish();
-    process.exit(code);
-  });
+  process.once('exit', () => finish());
 
   try {
     await spawnAsync(opt.cmd, pass1Flags);
