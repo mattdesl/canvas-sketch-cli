@@ -5,7 +5,6 @@ const Busboy = require('busboy');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 const bodyParser = require('body-parser');
-const concat = require('concat-stream');
 
 module.exports = (opt = {}) => {
   const logger = opt.logger;
@@ -151,16 +150,9 @@ module.exports = (opt = {}) => {
           if (usingStream) {
             filename = currentStreamFilename;
             if (currentStream.stream.writable) {
-              const piped = file.pipe(concat(buf => {
-                if (currentStream.stream.writable) {
-                  currentStream.stream.write(buf);
-                }
-              }));
-              piped.once('finish', () => {
-                resolve();
-              });
+              file.pipe(currentStream.stream, { end: false });
+              file.once('end', resolve);
               file.once('error', reject);
-              piped.once('error', reject);
             } else {
               reject(new Error('WARN: MP4 stream is no longer writable'));
             }
