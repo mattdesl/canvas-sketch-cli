@@ -134,15 +134,22 @@ const start = async (args, overrides = {}) => {
     throw err;
   }
 
+  const stripJSExt = (name) => {
+    return /\.(ts|js|mjs|es|jsx|tsx|es6)$/i.test(name) ? path.basename(name, path.extname(name)) : name;
+  };
+
   const fileName = (opt.name && typeof opt.name === 'string') ? opt.name : path.basename(opt.entry);
-  const fileNameBase = /\.(ts|js|mjs|es|jsx|tsx|es6)$/i.test(fileName) ? path.basename(fileName, path.extname(fileName)) : fileName;
-  const fileNameJS = `${fileNameBase}.js`;
+
+  const fileNameBase = stripJSExt(fileName);
+  const fileNameJS = opt.js || `${fileNameBase}.js`;
 
   let jsUrl = opt.js || encodeURIComponent(fileNameJS);
   const htmlOpts = { file: htmlFile, src: jsUrl, title: opt.title || fileName };
 
   if (opt.build) {
-    const compress = argv.compress !== false;
+    const compressJS = argv.compress !== 'html' && argv.compress !== false;
+    const compressHTML = argv.compress !== 'js' && argv.compress !== false;
+
     const jsOutFile = path.resolve(dir, fileNameJS);
     if (jsOutFile === opt.entry) {
       throw new Error(`The input and ouput JS files are the same: ${chalk.bold(path.relative(cwd, jsOutFile))}`);
@@ -159,7 +166,7 @@ const start = async (args, overrides = {}) => {
 
     // Create bundler from CLI options
     const bundler = browserifyFromArgs(opt.browserifyArgs, {
-      debug: typeof opt.debug === 'boolean' ? opt.debug : !compress,
+      debug: typeof opt.debug === 'boolean' ? opt.debug : !compressJS,
       entries: opt.entry
     });
 
@@ -169,7 +176,7 @@ const start = async (args, overrides = {}) => {
     // Now bundle up our code into a string
     const buffer = await bundleAsync(bundler);
     let code = buffer.toString();
-    if (compress !== false) {
+    if (compressJS) {
       try {
         code = terser.minify(code, {
           sourceMap: true,
@@ -207,7 +214,7 @@ const start = async (args, overrides = {}) => {
       const htmlData = await html.read(Object.assign({}, htmlOpts, {
         inline,
         code,
-        compress
+        compress: compressHTML
       }));
       await writeFile(htmlOutFile, htmlData);
       logFile('HTML', htmlOutFile, htmlData);
