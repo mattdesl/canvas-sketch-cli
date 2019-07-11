@@ -25,7 +25,6 @@ const terser = require('terser');
 const { EventEmitter } = require('events');
 const pluginEnv = require('./plugins/plugin-env');
 const pluginResolve = require('./plugins/plugin-resolve');
-const fromString = require('from2-string');
 const pluginGLSL = require('./plugins/plugin-glsl');
 // const transformInstaller = require('./plugins/transform-installer');
 
@@ -315,6 +314,7 @@ const start = async (args, overrides = {}) => {
       browserifyArgs,
       open: argv.open,
       serve: jsUrl,
+      ssl: argv.https,
       port: argv.port || 9966,
       pushstate: argv.pushstate,
       middleware: clientMiddleware.middleware,
