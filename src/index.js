@@ -51,7 +51,8 @@ const start = async (args, overrides = {}) => {
       'version',
       'inline',
       'watching',
-      'client'
+      'client',
+      'help'
     ],
     alias: {
       version: 'v',
@@ -64,7 +65,8 @@ const start = async (args, overrides = {}) => {
       force: 'f',
       template: 't',
       stream: 'S',
-      new: 'n'
+      new: 'n',
+      'help': 'h'
     },
     '--': true,
     default: {
@@ -97,6 +99,13 @@ const start = async (args, overrides = {}) => {
     if (Array.isArray(argv.stream.format)) {
       argv.stream.format = argv.stream.format[0] || 'mp4';
     }
+  }
+
+  if (argv.help) {
+    var help = require('path').join(__dirname, '..', 'bin', 'help.txt')
+    require('fs').createReadStream(help)
+      .pipe(process.stdout)
+    return null
   }
 
   if (argv.version) {
