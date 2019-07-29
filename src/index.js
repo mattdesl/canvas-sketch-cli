@@ -103,7 +103,7 @@ const start = async (args, overrides = {}) => {
 
   if (argv.help) {
     var help = require('path').join(__dirname, '..', 'bin', 'help.txt')
-    require('fs').createReadStream(help)
+    fs.createReadStream(help)
       .pipe(process.stdout)
     return null
   }
