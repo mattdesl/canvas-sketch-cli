@@ -102,10 +102,10 @@ const start = async (args, overrides = {}) => {
   }
 
   if (argv.help) {
-    var help = require('path').join(__dirname, '..', 'bin', 'help.txt')
+    const help = path.join(__dirname, '..', 'bin', 'help.txt');
     fs.createReadStream(help)
-      .pipe(process.stdout)
-    return null
+      .pipe(process.stdout);
+    return null;
   }
 
   if (argv.version) {
