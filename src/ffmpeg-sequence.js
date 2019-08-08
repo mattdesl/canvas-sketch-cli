@@ -348,7 +348,10 @@ async function convertGIF (opt = {}) {
   const ss = opt.start != null ? [ '-ss', String(opt.start) ] : '';
   const t = opt.time != null ? [ '-t', String(opt.time) ] : '';
   const inputFlag = [ '-i', opt.input ];
-  const fps = 'fps=' + defined(opt.fps, defaults.fps) + '';
+  const fpsVal = defined(opt.fps, defaults.fps);
+  const inputFPS = [ '-framerate', fpsVal ];
+  const outputFPS = [ '-r', fpsVal ];
+  const fps = 'fps=' + fpsVal + '';
   let scale = '';
   if (opt.scale) {
     const scaleStr = Array.isArray(opt.scale) ? opt.scale.join(':') : String(opt.scale);
@@ -358,8 +361,8 @@ async function convertGIF (opt = {}) {
   const filter1 = [ '-vf', filterStr + ',palettegen' ];
   const filter2 = [ '-filter_complex', filterStr + '[x];[x][1:v]paletteuse' ];
 
-  const pass1Flags = [ '-y', ss, t, inputFlag, filter1, tmpFile ].filter(Boolean).reduce(flat, []);
-  const pass2Flags = [ '-y', ss, t, inputFlag, '-i', tmpFile, filter2, '-f', 'gif', opt.output ].filter(Boolean).reduce(flat, []);
+  const pass1Flags = [ '-y', ss, t, inputFPS, inputFlag, filter1, outputFPS, tmpFile ].filter(Boolean).reduce(flat, []);
+  const pass2Flags = [ '-y', ss, t, inputFPS, inputFlag, '-i', tmpFile, filter2, '-f', 'gif', outputFPS, opt.output ].filter(Boolean).reduce(flat, []);
   let needsCleanup = true;
 
   function finish () {

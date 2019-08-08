@@ -117,7 +117,7 @@ module.exports = (opt = {}) => {
       }
 
       const format = stream;
-      const fileName = `${path.basename(opt.filename, path.extname(opt.filename))}.${format}`;
+      const fileName = `${path.basename(opt.filename)}.${format}`;
       const filePath = path.join(output, fileName);
 
       currentStream = createStream({
@@ -128,6 +128,10 @@ module.exports = (opt = {}) => {
         fps: opt.fps,
         output: filePath
       });
+
+      if (format === 'gif' && opt.fps > 50) {
+        console.warn('WARN: Values above 50 FPS may produce choppy GIFs');
+      }
 
       currentStreamFilename = fileName;
       respond(res, resOpt);
