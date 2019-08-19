@@ -185,25 +185,26 @@ const start = async (args, overrides = {}) => {
     const buffer = await bundleAsync(bundler);
     let code = buffer.toString();
     if (compressJS) {
-      try {
-        code = terser.minify(code, {
-          sourceMap: true,
-          output: { comments: false },
-          compress: {
-            keep_infinity: true,
-            pure_getters: true
-          },
-          warnings: true,
-          ecma: 5,
-          toplevel: false,
-          mangle: {
-            properties: false
-          }
-        }).code;
-      } catch (err) {
+      const { code : minifiedCode, error } = terser.minify(code, {
+        sourceMap: true,
+        output: { comments: false },
+        compress: {
+          keep_infinity: true,
+          pure_getters: true
+        },
+        warnings: true,
+        ecma: 5,
+        toplevel: false,
+        mangle: {
+          properties: false
+        }
+      });
+      // Check if an error occurred during the runtime
+      if (!minifiedCode) {
         logger.error('Could not compress JS bundle');
-        throw new Error(err);
+        throw error
       }
+      code = minifiedCode;
     }
 
     // In --stdout mode, just output the code
