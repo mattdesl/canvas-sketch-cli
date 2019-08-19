@@ -10,12 +10,11 @@ const spawn = require('cross-spawn');
 const minimist = require('minimist');
 const { createLogger, getErrorDetails } = require('./logger');
 const mkdirp = promisify(require('mkdirp'));
-const commandExists = require('command-exists');
 const tempy = require('tempy');
 const defined = require('defined');
+const getFFMPEG = require('./get-ffmpeg-cmd');
 
 const defaults = {
-  cmd: 'ffmpeg',
   fps: 24
 };
 
@@ -48,21 +47,10 @@ module.exports.args = (opt = {}) => {
 
 module.exports.convert = async (opt = {}) => {
   opt = Object.assign({}, opt);
-  const cmd = opt.cmd;
-  const logger = createLogger(opt);
   const cwd = path.resolve(opt.cwd || process.cwd());
+  const cmd = await getFFMPEG({ cwd });
+  const logger = createLogger(opt);
   const format = opt.format || 'gif';
-
-  let exists = false;
-  try {
-    exists = await commandExists(cmd);
-  } catch (_) {
-  }
-  if (!exists) {
-    logger.error(`${chalk.bold(opt.cmd)} command cannot be found, this most likely means ffmpeg hasn't been installed and set up in PATH environment.\n\nSee canvas-sketch docs for installation instructions.`);
-    logger.pad();
-    process.exit(1);
-  }
 
   let input = opt.input;
   let output = opt.output;
@@ -144,7 +132,10 @@ module.exports.convert = async (opt = {}) => {
 
   let spinner = !opt.quiet && ora(`Writing ${chalk.bold(path.relative(cwd, output))}`).start();
   try {
-    await converter(opt);
+    await converter({
+      ...opt,
+      cmd
+    });
     spinner.succeed();
   } catch (err) {
     spinner.stop();
@@ -162,6 +153,7 @@ module.exports.convert = async (opt = {}) => {
 
 async function convertMP4 (opt = {}) {
   const args = buildMP4Args(opt, false);
+  logCommand(opt.cmd, args);
   return spawnAsync(opt.cmd, args);
 }
 
@@ -214,8 +206,10 @@ function createGIFStream (opt = {}) {
         throw new Error('No frames processed');
       }
       const input = path.join(tmpDir, `%0${digitCount}d${extension}`);
+      const cmd = await getFFMPEG();
       await convertGIF({
         ...opt,
+        cmd,
         input
       });
       // cleanup tmp dir
@@ -234,8 +228,9 @@ function createMP4Stream (opt = {}) {
   let ffmpegStdin;
   let framesProcessed = 0;
 
-  const promise = new Promise((resolve, reject) => {
-    const ffmpeg = spawn(opt.cmd, args)
+  const promise = getFFMPEG().then(cmd => new Promise((resolve, reject) => {
+    logCommand(cmd, args);
+    const ffmpeg = spawn(cmd, args);
     const { stdin, stdout, stderr } = ffmpeg;
     ffmpegStdin = stdin;
 
@@ -257,7 +252,7 @@ function createMP4Stream (opt = {}) {
         return resolve();
       }
     });
-  });
+  }));
 
   return {
     encoding,
@@ -265,7 +260,7 @@ function createMP4Stream (opt = {}) {
     writeFrame (readableStream) {
       return new Promise((resolve, reject) => {
         framesProcessed++;
-        if (ffmpegStdin.writable) {
+        if (ffmpegStdin && ffmpegStdin.writable) {
           readableStream.pipe(ffmpegStdin, { end: false });
           readableStream.once('end', resolve);
           readableStream.once('error', reject);
@@ -374,7 +369,9 @@ async function convertGIF (opt = {}) {
   process.once('exit', () => finish());
 
   try {
+    logCommand(opt.cmd, pass1Flags);
     await spawnAsync(opt.cmd, pass1Flags);
+    logCommand(opt.cmd, pass2Flags);
     await spawnAsync(opt.cmd, pass2Flags);
     finish();
   } catch (err) {
@@ -390,3 +387,9 @@ module.exports.start = (format) => {
       console.error([ '', chalk.red(message), stack, '' ].join('\n'));
     });
 };
+
+function logCommand (cmd, args) {
+  if (String(process.env.FFMPEG_DEBUG) === '1') {
+    console.log(cmd, args.join(' '));
+  }
+}
