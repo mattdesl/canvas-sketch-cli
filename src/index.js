@@ -186,7 +186,7 @@ const start = async (args, overrides = {}) => {
     let code = buffer.toString();
     if (compressJS) {
       try {
-        code = terser.minify(code, {
+        const terserResult = terser.minify(code, {
           sourceMap: true,
           output: { comments: false },
           compress: {
@@ -199,10 +199,12 @@ const start = async (args, overrides = {}) => {
           mangle: {
             properties: false
           }
-        }).code;
+        });
+        if (terserResult.error) throw terserResult.error;
+        code = terserResult.code;
       } catch (err) {
         logger.error('Could not compress JS bundle');
-        throw new Error(err);
+        throw err;
       }
     }
 
@@ -548,7 +550,7 @@ if (!module.parent) {
     const { message, stack } = getErrorDetails(err);
     if (err instanceof SyntaxError) {
       console.error(`\n${err.toString()}\n`);
-    } else {
+    } else if (stack) {
       console.error([
         '',
         chalk.red(message),
@@ -556,6 +558,8 @@ if (!module.parent) {
         `    ${stack.trim().split('\n').slice(0, 10).join('\n')}`,
         ''
       ].join('\n'));
+    } else {
+      console.error(err);
     }
   });
 }

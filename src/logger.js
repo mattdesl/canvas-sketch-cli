@@ -71,6 +71,11 @@ module.exports.createLogger = function (opts = {}) {
 };
 
 module.exports.getErrorDetails = function (err) {
+  if (!err.stack) {
+    return {
+      message: err.message
+    };
+  }
   const msg = err.stack;
   const lines = msg.split('\n');
   let endIdx = lines.findIndex(line => line.trim().startsWith('at '));
