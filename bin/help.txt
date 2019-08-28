@@ -30,3 +30,5 @@ Options:
   --html             The HTML input file, defaults to a basic template
   --stream, -S       Enable ffmpeg streaming for MP4/GIF formats
   --https            Use HTTPS (SSL) in dev server instead of HTTP
+  --source-map       Source map option, can be false, "inline",
+                     "external", or "auto" (default)
