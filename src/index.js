@@ -28,6 +28,8 @@ const pluginResolve = require('./plugins/plugin-resolve');
 const pluginGLSL = require('./plugins/plugin-glsl');
 // const transformInstaller = require('./plugins/transform-installer');
 
+const DEFAULT_GENERATED_FILENAME = '_generated.js';
+
 const bundleAsync = (bundler) => {
   return new Promise((resolve, reject) => {
     bundler.bundle((err, src) => {
@@ -173,8 +175,9 @@ const start = async (args, overrides = {}) => {
     logger.log('Building...');
 
     // Create bundler from CLI options
+    const debug = typeof opt.debug === 'boolean' ? opt.debug : true;
     const bundler = browserifyFromArgs(opt.browserifyArgs, {
-      debug: typeof opt.debug === 'boolean' ? opt.debug : !compressJS,
+      debug,
       entries: opt.entry
     });
 
@@ -186,7 +189,9 @@ const start = async (args, overrides = {}) => {
     let code = buffer.toString();
     if (compressJS) {
       try {
-        const terserResult = terser.minify(code, {
+        const terserOpt = {};
+        terserOpt[DEFAULT_GENERATED_FILENAME] = code;
+        const terserResult = terser.minify(terserOpt, {
           sourceMap: true,
           output: { comments: false },
           compress: {
@@ -200,10 +205,12 @@ const start = async (args, overrides = {}) => {
             properties: false
           }
         });
-        if (terserResult.error) throw terserResult.error;
+        if (terserResult.error) {
+          terserResult.error.originalSourceCode = code;
+          throw terserResult.error;
+        }
         code = terserResult.code;
       } catch (err) {
-        logger.error('Could not compress JS bundle');
         throw err;
       }
     }
@@ -343,7 +350,7 @@ const start = async (args, overrides = {}) => {
         // installed.
         const wss = ev.webSocketServer;
         if (wss) {
-          const installEvents = [ 'install-start', 'install-end' ];
+          const installEvents = ['install-start', 'install-end'];
           installEvents.forEach(key => {
             opt.installer.on(key, ({ modules }) => {
               app.error(key === 'install-start'
@@ -365,7 +372,7 @@ const start = async (args, overrides = {}) => {
     return app;
   }
 
-  async function prepare (logger) {
+  async function prepare(logger) {
     // Write a new package, but first check for collision
     const dirName = path.basename(cwd);
     if (dirName === 'canvas-sketch') {
@@ -516,7 +523,7 @@ const start = async (args, overrides = {}) => {
           //   require('blah').default
           // The added benefit of tree-shaking ES Modules isn't even used here (no rollup/webpack)
           // so we will just discard it altogether for a cleaner developer & user experience.
-          mainFields: [ 'browser', 'main' ],
+          mainFields: ['browser', 'main'],
           // This is a bit frustrating, as well. Babel-ifying the entire node_modules
           // tree is extremely slow, and only fixes a few problematic modules
           // that have decided to publish with ESM, which isn't even standard yet!
@@ -548,8 +555,26 @@ module.exports = start;
 if (!module.parent) {
   module.exports(process.argv.slice(2)).catch(err => {
     const { message, stack } = getErrorDetails(err);
-    if (err instanceof SyntaxError) {
-      console.error(`\n${err.toString()}\n`);
+    if (err instanceof SyntaxError || err.name === 'SyntaxError') {
+      if (typeof err.line === 'number' && isFinite(err.line) &&
+        typeof err.col === 'number' && isFinite(err.col)) {
+        const {
+          line,
+          col,
+          originalSourceCode,
+          message
+        } = err;
+        const formattedSrc = originalSourceCode ? formatSyntaxError(originalSourceCode, line, col) : '';
+        console.error([
+          '',
+          chalk.red(`SyntaxError: ${message}`),
+          `At line ${chalk.magenta(line)} and column ${chalk.magenta(col)} of generated bundle`,
+          formattedSrc,
+          ''
+        ].join('\n'));
+      } else {
+        console.error(`\n${err.toString()}\n`);
+      }
     } else if (stack) {
       console.error([
         '',
@@ -562,4 +587,36 @@ if (!module.parent) {
       console.error(err);
     }
   });
+}
+
+function formatSyntaxError (code, line, col, buffer = 2) {
+  const lineIndex = line - 1;
+  let lines = code.split('\n').map((line, index) => {
+    return { line, index };
+  });
+  const minLine = Math.max(0, lineIndex - buffer);
+  const maxLine = Math.min(lines.length, lineIndex + buffer + 1);
+  const msg = [
+    '  ...',
+    ...lines.slice(minLine, maxLine).map(line => {
+      const prefix = `  ${line.index + 1}: `;
+      const lines = [
+        `${prefix}${line.line}`
+      ];
+      if (lineIndex === line.index) {
+        const cursor = chalk.bold(chalk.red('^'));
+        lines[0] = chalk.red(lines[0]);
+        const colCount = Math.max(0, col - 1);
+        const prefixSpaces = repeatCharacters(colCount + prefix.length, ' ');
+        lines.push(`${prefixSpaces}${cursor}`);
+      }
+      return lines.join('\n');
+    }),
+    '  ...'
+  ].join('\n');
+  return msg;
+}
+
+function repeatCharacters (count, char = ' ') {
+  return Array.from(new Array(count)).map(() => char).join('');
 }
