@@ -29,6 +29,7 @@
     "cli-format": "^3.0.9",
     "command-exists": "^1.2.8",
     "concat-stream": "^1.6.2",
+    "convert-source-map": "^1.6.0",
     "cross-spawn": "^6.0.5",
     "dateformat": "^3.0.3",
     "defined": "^1.0.0",

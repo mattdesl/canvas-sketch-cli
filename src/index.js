@@ -22,6 +22,7 @@ const createMiddleware = require('./middleware');
 const { createLogger, getErrorDetails } = require('./logger');
 const html = require('./html');
 const terser = require('terser');
+const SourceMapUtil = require('convert-source-map');
 const { EventEmitter } = require('events');
 const pluginEnv = require('./plugins/plugin-env');
 const pluginResolve = require('./plugins/plugin-resolve');
@@ -57,6 +58,7 @@ const start = async (args, overrides = {}) => {
       'help'
     ],
     alias: {
+      sourceMap: 'source-map',
       version: 'v',
       port: 'p',
       pushstate: 'P',
@@ -174,8 +176,25 @@ const start = async (args, overrides = {}) => {
     let timeStart = Date.now();
     logger.log('Building...');
 
+    const inline = opt.inline;
+
+    let sourceMapOption = opt.sourceMap;
+    // parse CLI string
+    if (sourceMapOption === 'true' || sourceMapOption === 'false') {
+      sourceMapOption = sourceMapOption === 'true';
+    }
+    if (sourceMapOption == null || sourceMapOption === 'auto' || sourceMapOption === true) {
+      sourceMapOption = true;
+      // By default, sourceMap: true will also be inlined on --inline
+      // But user can still override with {sourceMap: 'external'}
+      if (inline) {
+        sourceMapOption = 'inline';
+      }
+    }
+
     // Create bundler from CLI options
-    const debug = typeof opt.debug === 'boolean' ? opt.debug : true;
+    let debug = typeof opt.debug === 'boolean' ? opt.debug : true;
+    if (sourceMapOption === false) debug = false;
     const bundler = browserifyFromArgs(opt.browserifyArgs, {
       debug,
       entries: opt.entry
@@ -187,12 +206,33 @@ const start = async (args, overrides = {}) => {
     // Now bundle up our code into a string
     const buffer = await bundleAsync(bundler);
     let code = buffer.toString();
+
+    const sourceMapFile = `${jsOutFile}.map`;
+
+    // Get initial source map from browserify
+    let sourceMapJSON;
+    const sourceMapConverter = SourceMapUtil.fromSource(code);
+    if (sourceMapConverter) sourceMapJSON = sourceMapConverter.toJSON();
+
+    if (sourceMapOption && !sourceMapJSON) {
+      sourceMapOption = false;
+      // Maybe it would be good to warn why a .map file is not generated? Or maybe too heavy handed...
+      // console.warn('Note: Source map not generated because browserify did not emit an inline source map.\nTo hide this warning, use {sourceMap: false} or --source-map=false');
+    }
+
     if (compressJS) {
+      // Strip browserify inline source map if it exists
+      code = SourceMapUtil.removeComments(code);
+
       try {
         const terserOpt = {};
-        terserOpt[DEFAULT_GENERATED_FILENAME] = code;
+        terserOpt[path.basename(jsOutFile)] = code;
+
         const terserResult = terser.minify(terserOpt, {
-          sourceMap: true,
+          sourceMap: sourceMapOption && debug && sourceMapJSON ? {
+            content: sourceMapJSON,
+            url: path.basename(sourceMapFile)
+          } : false,
           output: { comments: false },
           compress: {
             keep_infinity: true,
@@ -210,9 +250,28 @@ const start = async (args, overrides = {}) => {
           throw terserResult.error;
         }
         code = terserResult.code;
+        if (sourceMapOption) sourceMapJSON = terserResult.map;
       } catch (err) {
         throw err;
       }
+    }
+
+    // strip any subsequently added source maps
+    code = SourceMapUtil.removeComments(code);
+    code = SourceMapUtil.removeMapFileComments(code);
+
+    // now add them back in as per our options
+    if (sourceMapOption && sourceMapJSON && debug) {
+      let relSrcMapFile = path.relative(dir, sourceMapFile);
+      // if (!path.isAbsolute(relSrcMapFile)) {
+      //   relSrcMapFile = `./${encodeURIComponent(relSrcMapFile)}`;
+      // }
+      const isInline = sourceMapOption === 'inline';
+      const comment = isInline
+        ? SourceMapUtil.fromJSON(sourceMapJSON).toComment()
+        : SourceMapUtil.generateMapFileComment(relSrcMapFile);
+      if (!code.endsWith('\n')) code += '\n';
+      code += comment + '\n';
     }
 
     // In --stdout mode, just output the code
@@ -225,8 +284,6 @@ const start = async (args, overrides = {}) => {
         logger.log(`${type} → ${chalk.bold(path.relative(cwd, file))} ${bytes}`, { leadingSpace: false });
       };
 
-      const inline = opt.inline;
-
       // Read the templated HTML, transform it and write it out
       const htmlData = await html.read(Object.assign({}, htmlOpts, {
         inline,
@@ -234,12 +291,17 @@ const start = async (args, overrides = {}) => {
         compress: compressHTML
       }));
       await writeFile(htmlOutFile, htmlData);
-      logFile('HTML', htmlOutFile, htmlData);
+      logFile('HTML  ', htmlOutFile, htmlData);
 
       // Write bundled JS
       if (!inline) {
         await writeFile(jsOutFile, code);
-        logFile('JS  ', jsOutFile, code);
+        logFile('JS    ', jsOutFile, code);
+      }
+
+      if (sourceMapOption !== false && sourceMapOption !== 'inline' && sourceMapJSON) {
+        await writeFile(sourceMapFile, sourceMapJSON);
+        logFile('SrcMap', sourceMapFile, sourceMapJSON);
       }
 
       const ms = (Date.now() - timeStart);
