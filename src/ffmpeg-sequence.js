@@ -344,7 +344,10 @@ async function convertGIF (opt = {}) {
   const t = opt.time != null ? [ '-t', String(opt.time) ] : '';
   const inputFlag = [ '-i', opt.input ];
   const fpsVal = defined(opt.fps, defaults.fps);
-  const inputFPS = [ '-framerate', fpsVal ];
+  const extname = path.extname(opt.input);
+  // input framerate only seems accetable if you have a sequence...
+  // so ignore it if user wants to convert, say, a MP4 file into GIF
+  const inputFPS = (!extname || /^\.(png|tif|tga|tiff|webp|jpe?g|bmp)$/i.test(extname)) ? [ '-framerate', fpsVal ] : false;
   const outputFPS = [ '-r', fpsVal ];
   const fps = 'fps=' + fpsVal + '';
   let scale = '';
