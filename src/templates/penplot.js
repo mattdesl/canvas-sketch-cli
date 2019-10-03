@@ -1,46 +1,54 @@
 const canvasSketch = require('canvas-sketch');
-const { renderPolylines } = require('canvas-sketch-util/penplot');
+const { renderPaths, createPath, pathsToPolylines } = require('canvas-sketch-util/penplot');
 const { clipPolylinesToBox } = require('canvas-sketch-util/geometry');
+const Random = require('canvas-sketch-util/random');
+
+// You can force a specific seed by replacing this with a string value
+const defaultSeed = '';
+
+// Set a random seed so we can reproduce this print later
+Random.setSeed(defaultSeed || Random.getRandomSeed());
 
 const settings = {
+  suffix: Random.getSeed(),
   dimensions: 'A4',
   orientation: 'portrait',
   pixelsPerInch: 300,
   scaleToView: true,
-  units: 'cm',
+  units: 'cm'
 };
 
-const sketch = ({ width, height }) => {
-  // List of polylines for our pen plot
-  let lines = [];
+const sketch = ({ width, height, units }) => {
+  // Holds all our 'path' objects
+  // which could be from createPath, or SVGPath string, or polylines
+  const paths = [];
 
-  // Draw some circles expanding outward
-  const steps = 5;
-  const count = 20;
-  const spacing = Math.min(width, height) * 0.05;
-  const radius = Math.min(width, height) * 0.25;
-  for (let j = 0; j < count; j++) {
-    const r = radius + j * spacing;
-    const circle = [];
-    for (let i = 0; i < steps; i++) {
-      const t = i / Math.max(1, steps - 1);
-      const angle = Math.PI * 2 * t;
-      circle.push([
-        width / 2 + Math.cos(angle) * r,
-        height / 2 + Math.sin(angle) * r
-      ]);
-    }
-    lines.push(circle);
+  // Draw random arcs
+  const count = 750;
+  for (let i = 0; i < count; i++) {
+    // setup arc properties randomly
+    const angle = Random.gaussian(0, Math.PI / 2);
+    const arcLength = Math.abs(Random.gaussian(0, Math.PI / 2));
+    const r = ((i + 1) / count) * Math.min(width, height) / 1;
+
+    // draw the arc
+    const p = createPath();
+    p.arc(width / 2, height / 2, r, angle, angle + arcLength);
+    paths.push(p);
   }
 
-  // Clip all the lines to a margin
-  const margin = 1.0;
+  // Convert the paths into polylines so we can apply line-clipping
+  // When converting, pass the 'units' to get a nice default curve resolution
+  let lines = pathsToPolylines(paths, { units });
+
+  // Clip to bounds, using a margin in working units
+  const margin = 1;
   const box = [ margin, margin, width - margin, height - margin ];
   lines = clipPolylinesToBox(lines, box);
 
   // The 'penplot' util includes a utility to render
   // and export both PNG and SVG files
-  return props => renderPolylines(lines, props);
+  return props => renderPaths(lines, props);
 };
 
 canvasSketch(sketch, settings);
