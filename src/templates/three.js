@@ -10,9 +10,7 @@ const settings = {
   // Make the loop animated
   animate: true,
   // Get a WebGL canvas rather than 2D
-  context: "webgl",
-  // Turn on MSAA
-  attributes: { antialias: true }
+  context: "webgl"
 };
 
 const sketch = ({ context }) => {
