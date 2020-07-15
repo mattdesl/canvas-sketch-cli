@@ -556,7 +556,6 @@ const start = async (args, overrides = {}) => {
     if (output == null || output === true) {
       // Default to downloads
       output = downloads({ logger });
-      console.log("GOT OUTPUT", output)
     } else if (output === '.') {
       // Accept '.' as current dir
       output = cwd;
