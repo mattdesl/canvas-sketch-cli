@@ -6,7 +6,7 @@ const parseArgs = require('subarg');
 const rightNow = require('right-now');
 const prettyBytes = require('pretty-bytes');
 const prettyMs = require('pretty-ms');
-const downloads = require('downloads-folder');
+const downloads = require('./downloads-folder');
 const getStdin = require('get-stdin');
 const esmify = require('esmify');
 const fs = require('fs');
@@ -555,7 +555,8 @@ const start = async (args, overrides = {}) => {
     }
     if (output == null || output === true) {
       // Default to downloads
-      output = downloads();
+      output = downloads({ logger });
+      console.log("GOT OUTPUT", output)
     } else if (output === '.') {
       // Accept '.' as current dir
       output = cwd;
