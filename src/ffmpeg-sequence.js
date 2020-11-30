@@ -227,6 +227,7 @@ function createMP4Stream (opt = {}) {
   const args = buildMP4Args(opt, true);
   let ffmpegStdin;
   let framesProcessed = 0;
+  let exited = false;
 
   const promise = getFFMPEG().then(cmd => new Promise((resolve, reject) => {
     logCommand(cmd, args);
@@ -246,6 +247,7 @@ function createMP4Stream (opt = {}) {
     });
 
     ffmpeg.on('exit', async (status) => {
+      exited = true;
       if (status) {
         return reject(new Error(`FFmpeg exited with status ${status}`));
       } else {
@@ -257,10 +259,21 @@ function createMP4Stream (opt = {}) {
   return {
     encoding,
     stream: ffmpegStdin,
+    writeBufferFrame (buffer) {
+      return new Promise((resolve, reject) => {
+        framesProcessed++;
+        if (ffmpegStdin.writable && !exited) {
+          ffmpegStdin.write(buffer);
+          resolve();
+        } else {
+          reject(new Error('WARN: MP4 stream is no longer writable'));
+        }
+      });
+    },
     writeFrame (readableStream) {
       return new Promise((resolve, reject) => {
         framesProcessed++;
-        if (ffmpegStdin && ffmpegStdin.writable) {
+        if (ffmpegStdin && ffmpegStdin.writable && !exited) {
           readableStream.pipe(ffmpegStdin, { end: false });
           readableStream.once('end', resolve);
           readableStream.once('error', reject);

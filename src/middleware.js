@@ -2,6 +2,7 @@ const commit = require('./commit');
 const { createStream } = require('./ffmpeg-sequence');
 const path = require('path');
 const Busboy = require('busboy');
+const concat = require('concat-stream');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 const bodyParser = require('body-parser');
@@ -188,9 +189,16 @@ module.exports = (opt = {}) => {
             filename = currentStreamFilename;
 
             if (currentStream) {
-              currentStream.writeFrame(file, curFileName)
-                .then(() => resolve())
-                .catch(err => reject(err));
+              file.pipe(concat(buf => {
+                currentStream.writeBufferFrame(buf)
+                  .then(() => resolve())
+                  .catch(err => reject(err));
+              }));
+
+              // Seems to bug out with packaged Electron apps
+              // currentStream.writeFrame(file, curFileName)
+              //   .then(() => resolve())
+              //   .catch(err => reject(err));
             } else {
               reject(new Error('WARN: MP4 stream stopped early'));
             }
