@@ -172,6 +172,7 @@ function createGIFStream (opt = {}) {
   let extension;
 
   return {
+    promise: Promise.resolve(),
     encoding,
     writeFrame (file, filename) {
       return new Promise((resolve, reject) => {
@@ -229,7 +230,9 @@ function createMP4Stream (opt = {}) {
   let framesProcessed = 0;
   let exited = false;
 
-  const promise = getFFMPEG().then(cmd => new Promise((resolve, reject) => {
+  const cmdPromise = getFFMPEG();
+  
+  const promise = cmdPromise.then(cmd => new Promise((resolve, reject) => {
     logCommand(cmd, args);
     const ffmpeg = spawn(cmd, args);
     const { stdin, stdout, stderr } = ffmpeg;
@@ -257,6 +260,7 @@ function createMP4Stream (opt = {}) {
   }));
 
   return {
+    promise: cmdPromise,
     encoding,
     stream: ffmpegStdin,
     writeBufferFrame (buffer) {

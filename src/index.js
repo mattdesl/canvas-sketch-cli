@@ -94,8 +94,10 @@ const start = async (args, overrides = {}) => {
       format: 'mp4'
     };
   } else if (argv.stream && typeof argv.stream === 'object') {
-    argv.stream.format = argv.stream._;
-    delete argv.stream._;
+    if (argv.stream._) {
+      if (!argv.stream.format) argv.stream.format = argv.stream._;
+      delete argv.stream._;
+    }
   }
 
   // Handle array -> single string
