@@ -1,18 +1,17 @@
-const resolveGlobal = require('resolve-global');
-const { promisify } = require('util');
-const resolve = promisify(require('resolve'));
-const commandExists = require('command-exists');
+const resolveGlobal = require("resolve-global");
+const { promisify } = require("util");
+const resolve = promisify(require("resolve"));
 
 module.exports = getCommand;
-async function getCommand (opt = {}) {
+async function getCommand(opt = {}) {
   if (process.env.FFMPEG_PATH) {
     return process.env.FFMPEG_PATH;
   }
 
   // see if user has installed the npm bin
   const {
-    moduleName = '@ffmpeg-installer/ffmpeg',
-    cwd = process.cwd()
+    moduleName = "@ffmpeg-installer/ffmpeg",
+    cwd = process.cwd(),
   } = opt;
 
   // first resolve local version
@@ -20,7 +19,7 @@ async function getCommand (opt = {}) {
   try {
     modulePath = await resolve(moduleName, { basedir: cwd });
   } catch (err) {
-    if (err.code !== 'MODULE_NOT_FOUND') throw err;
+    if (err.code !== "MODULE_NOT_FOUND") throw err;
   }
 
   // try to resolve to globally installed version
@@ -31,23 +30,15 @@ async function getCommand (opt = {}) {
   if (modulePath) {
     // if module resolved let's require it and use that
     const moduleInstance = require(modulePath);
-    return moduleInstance.path.replace('app.asar', 'app.asar.unpacked');
+    return moduleInstance.path.replace("app.asar", "app.asar.unpacked");
   } else {
     // otherwise let's default to 'ffmpeg'
-    const cmd = 'ffmpeg';
-    const valid = await hasCommand(cmd);
-    if (!valid) {
-      throw new Error(`Could not find '${cmd}' command - you may need to install it.\nTry the following:\n  npm i @ffmpeg-installer/ffmpeg --save-dev`);
-    }
-    return cmd;
+    console.warn(
+      'Warning: Could not find FFMPEG installed locally or globally, ' +
+      'defaulting to "ffmpeg" command. You might need to either specify ' +
+      'a FFMPEG_PATH env var, or install the following:\n  npm install ' +
+      '@ffmpeg-installer/ffmpeg --save'
+    );
+    return 'ffmpeg';
   }
-}
-
-async function hasCommand (cmd) {
-  let exists = false;
-  try {
-    exists = await commandExists(cmd);
-  } catch (_) {
-  }
-  return exists;
 }

@@ -13,6 +13,7 @@ module.exports = (opt = {}) => {
   const output = opt.output;
   const streamOpt = opt.stream || {};
   const stream = streamOpt.format;
+  const bufferFrames = streamOpt.buffer;
 
   if (stream && (stream !== 'gif' && stream !== 'mp4')) {
     throw new Error('Currently the --stream flag must be either gif, mp4, or --no-stream (default)');
@@ -189,16 +190,17 @@ module.exports = (opt = {}) => {
             filename = currentStreamFilename;
 
             if (currentStream) {
-              file.pipe(concat(buf => {
-                currentStream.writeBufferFrame(buf)
+              if (bufferFrames) {
+                file.pipe(concat(buf => {
+                  currentStream.writeBufferFrame(buf)
+                    .then(() => resolve())
+                    .catch(err => reject(err));
+                }));
+              } else {
+                currentStream.writeFrame(file, curFileName)
                   .then(() => resolve())
                   .catch(err => reject(err));
-              }));
-
-              // Seems to bug out with packaged Electron apps
-              // currentStream.writeFrame(file, curFileName)
-              //   .then(() => resolve())
-              //   .catch(err => reject(err));
+              }
             } else {
               reject(new Error('WARN: MP4 stream stopped early'));
             }

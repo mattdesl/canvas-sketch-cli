@@ -27,7 +27,6 @@
     "busboy": "^0.2.14",
     "chalk": "^2.4.1",
     "cli-format": "^3.0.9",
-    "command-exists": "^1.2.8",
     "concat-stream": "^1.6.2",
     "convert-source-map": "^1.6.0",
     "cross-spawn": "^6.0.5",
