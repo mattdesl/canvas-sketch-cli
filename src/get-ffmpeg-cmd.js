@@ -32,13 +32,6 @@ async function getCommand(opt = {}) {
     const moduleInstance = require(modulePath);
     return moduleInstance.path.replace("app.asar", "app.asar.unpacked");
   } else {
-    // otherwise let's default to 'ffmpeg'
-    console.warn(
-      'Warning: Could not find FFMPEG installed locally or globally, ' +
-      'defaulting to "ffmpeg" command. You might need to either specify ' +
-      'a FFMPEG_PATH env var, or install the following:\n  npm install ' +
-      '@ffmpeg-installer/ffmpeg --save'
-    );
     return 'ffmpeg';
   }
 }

@@ -11,6 +11,7 @@ module.exports = (opt = {}) => {
   const logger = opt.logger;
   const quiet = opt.quiet;
   const output = opt.output;
+  const debug = opt.debug;
   const streamOpt = opt.stream || {};
   const stream = streamOpt.format;
   const bufferFrames = streamOpt.buffer;
@@ -27,8 +28,9 @@ module.exports = (opt = {}) => {
     logger.pad();
   };
 
-  const sendError = (res, err) => {
+  const sendError = (res, err, code) => {
     logError(err);
+    res.statusCode = code || 500;
     res.end(JSON.stringify({ error: err.message }));
   };
 
@@ -65,6 +67,14 @@ module.exports = (opt = {}) => {
     res.end(JSON.stringify(obj));
   }
 
+  function resetStream () {
+    if (currentStream) {
+      currentStream.close();
+    }
+    currentStream = null;
+    currentStreamFilename = null;
+  }
+
   function stopCurrentStream () {
     let p = Promise.resolve();
     if (currentStream) {
@@ -92,7 +102,10 @@ module.exports = (opt = {}) => {
 
     stopCurrentStream().then(() => {
       respond(res, resOpt);
-    }).catch(err => sendError(res, err));
+    }).catch(err => {
+      resetStream();
+      sendError(res, err, 500)
+    });
   }
 
   function handleStreamStart (req, res, next) {
@@ -112,10 +125,11 @@ module.exports = (opt = {}) => {
       return sendError(res, `Error trying to start stream, the --output flag has been disabled`);
     }
 
-    stopCurrentStream().then(() => {
+    stopCurrentStream();
+    Promise.resolve().then(() => {
       const encoding = opt.encoding || 'image/png';
       if (encoding !== 'image/png' && encoding !== 'image/jpeg') {
-        return sendError(res, 'Could not start MP4 stream, you must use "image/png" or "image/jpeg" encoding');
+        return sendError(res, 'Could not start MP4 stream, you must use "image/png" or "image/jpeg" encoding', 400);
       }
 
       const format = stream;
@@ -130,13 +144,15 @@ module.exports = (opt = {}) => {
         ...streamOpt,
         format,
         encoding,
-        quiet: String(process.env.DEBUG_FFMPEG) !== '1',
+        debug: String(process.env.DEBUG_FFMPEG) === '1' || debug,
         fps: opt.fps,
-        output: filePath
+        output: filePath,
       });
       return currentStream.promise;
     }).then(() => {
-      respond(res, resOpt);
+      return respond(res, resOpt);
+    }).catch(err => {
+      return sendError(res, err, 500);
     });
   }
 
@@ -144,7 +160,7 @@ module.exports = (opt = {}) => {
     commit(Object.assign({}, opt, { logger, quiet })).then(result => {
       respond(res, result);
     }).catch(err => {
-      sendError(res, err);
+      sendError(res, err, 500);
     });
   }
 
@@ -162,7 +178,7 @@ module.exports = (opt = {}) => {
 
   function handleSaveBlob (req, res, next) {
     if (!output) {
-      return sendError(res, `Error trying to saveBlob, the --output flag has been disabled`);
+      return sendError(res, `Error trying to saveBlob, the --output flag has been disabled`, 500);
     }
 
     let busboy = createBusboy(req, res);
@@ -171,17 +187,19 @@ module.exports = (opt = {}) => {
     let filename;
     let responded = false;
     let fileWritePromise = Promise.resolve();
-    const usingStream = Boolean(isStreaming && currentStream);
     busboy.once('file', (field, file, name, enc, mimeType) => {
       fileWritePromise = new Promise((resolve, reject) => {
         mkdirp(output, err => {
           if (err) return reject(err);
-
           filename = path.basename(name);
           const filePath = path.join(output, filename);
           const curFileName = filename;
 
+          const usingStream = Boolean(isStreaming && currentStream);
           if (usingStream) {
+            if (!currentStream.isWritable()) {
+              reject(new Error('FFMPEG stream no longer writable'));
+            }
             if (mimeType && mimeType !== currentStream.encoding) {
               reject(new Error('Error: Currently only single-image exports in image/png or image/jpeg format is supported with MP4 streaming'));
             }
@@ -213,13 +231,16 @@ module.exports = (opt = {}) => {
         });
       }).catch(err => {
         responded = true;
-        sendError(res, err);
+        resetStream();
+        sendError(res, err, 500);
       });
     });
     busboy.on('finish', () => {
       fileWritePromise
         .then(() => {
           if (responded) return;
+          const usingStream = Boolean(isStreaming && currentStream);
+
           responded = true;
           respond(res, {
             filename: filename,
@@ -230,7 +251,8 @@ module.exports = (opt = {}) => {
         }).catch(err => {
           if (responded) return;
           responded = true;
-          sendError(res, err);
+          resetStream();
+          sendError(res, err, 500);
         });
     });
     req.pipe(busboy);

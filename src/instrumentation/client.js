@@ -8,6 +8,14 @@ if (!window[NAMESPACE].initialized) {
 }
 
 function initialize () {
+  function parseError (text) {
+    try {
+      const data = JSON.parse(text)
+      if (data && data.error) return data.error;
+    } catch (_) {}
+    return text;
+  }
+
   // Awaiting enable/disable event
   window[NAMESPACE].liveReloadEnabled = undefined;
   window[NAMESPACE].initialized = true;
@@ -21,7 +29,6 @@ function initialize () {
   // File saving utility
   window[NAMESPACE].saveBlob = (blob, opts) => {
     opts = opts || {};
-
     const form = new window.FormData();
     form.append('file', blob, opts.filename);
     return window.fetch('/canvas-sketch-cli/saveBlob', Object.assign({}, defaultPostOptions, {
@@ -31,15 +38,10 @@ function initialize () {
         return res.json();
       } else {
         return res.text().then(text => {
-          throw new Error(text);
+          return Promise.reject(new Error(parseError(text)));
         });
       }
-    }).catch(err => {
-      // Some issue, just bail out and return nil hash
-      console.warn(`There was a problem exporting ${opts.filename}`);
-      console.error(err);
-      return undefined;
-    });
+    })
   };
 
   const stream = (url, opts) => {
@@ -62,15 +64,10 @@ function initialize () {
           return res.json();
         } else {
           return res.text().then(text => {
-            throw new Error(text);
+            return Promise.reject(new Error(parseError(text)))
           });
         }
-      }).catch(err => {
-        // Some issue, just bail out and return nil hash
-        console.warn(`There was a problem starting the stream export`);
-        console.error(err);
-        return undefined;
-      });
+      })
   };
 
   // File streaming utility

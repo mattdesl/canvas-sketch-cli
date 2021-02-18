@@ -20,7 +20,7 @@ const defaults = {
 
 module.exports.args = (opt = {}) => {
   const argv = minimist(process.argv.slice(2), {
-    boolean: [ 'quiet', 'force' ],
+    boolean: [ 'quiet', 'force', 'debug' ],
     default: defaults,
     alias: {
       inputFPS: [ 'input-fps' ],
@@ -173,7 +173,13 @@ function createGIFStream (opt = {}) {
 
   return {
     promise: Promise.resolve(),
+    isWritable: () => {
+      return true;
+    },
     encoding,
+    close () {
+      // maybe could do something here
+    },
     writeFrame (file, filename) {
       return new Promise((resolve, reject) => {
         framesProcessed++;
@@ -224,24 +230,47 @@ function createMP4Stream (opt = {}) {
   opt = Object.assign({ format: 'mp4' }, defaults, opt);
 
   const encoding = opt.encoding || 'image/png';
-  const quiet = opt.quiet;
+  const debug = opt.debug;
   const args = buildMP4Args(opt, true);
   let ffmpegStdin;
   let framesProcessed = 0;
   let exited = false;
 
   const cmdPromise = getFFMPEG();
+
+  let exitResolve;
+  const exitPromise = new Promise(resolve => {
+    exitResolve = resolve;
+  })
   
   const promise = cmdPromise.then(cmd => new Promise((resolve, reject) => {
     logCommand(cmd, args);
-    const ffmpeg = spawn(cmd, args);
+
+    const ffmpeg = spawn(cmd, args, {
+      stdio: debug ? ['pipe', process.stdout, process.stderr] : undefined
+    });
+    ffmpeg.on('error', err => {
+      if (err.code === 'ENOENT') {
+        console.warn(
+          'Warning: Error spawning FFMPEG. This usually happens because FFMPEG ' +
+          'is not installed locally or globally, and no command "ffmpeg" is found. ' +
+          'You might need to either specify ' +
+          'a FFMPEG_PATH env var, or install the following:\n  npm install ' +
+          '@ffmpeg-installer/ffmpeg --save'
+        );
+      } else {
+        console.error(err.message);
+      }
+      reject(err);
+    })
+
     const { stdin, stdout, stderr } = ffmpeg;
     ffmpegStdin = stdin;
 
-    if (!quiet) {
-      stdout.pipe(process.stdout);
-      stderr.pipe(process.stderr);
-    }
+    // if (!quiet) {
+    // stdout.pipe(process.stdout);
+    // stderr.pipe(process.stderr);
+    // }
 
     stdin.on('error', (err) => {
       if (err.code !== 'EPIPE') {
@@ -249,19 +278,23 @@ function createMP4Stream (opt = {}) {
       }
     });
 
-    ffmpeg.on('exit', async (status) => {
+    ffmpeg.on('exit', (status) => {
       exited = true;
-      if (status) {
-        return reject(new Error(`FFmpeg exited with status ${status}`));
-      } else {
-        return resolve();
+      if (status && !debug) {
+        console.error(`WARN: ffmpeg exited with status ${status} - you may try passing --debug option to get FFMPEG logs`);
       }
+      exitResolve(status);
     });
+
+    resolve();
   }));
 
   return {
-    promise: cmdPromise,
+    promise,
     encoding,
+    isWritable: () => {
+      return ffmpegStdin && ffmpegStdin.writable && !exited;
+    },
     stream: ffmpegStdin,
     writeBufferFrame (buffer) {
       return new Promise((resolve, reject) => {
@@ -286,9 +319,12 @@ function createMP4Stream (opt = {}) {
         }
       });
     },
-    end () {
+    close () {
       ffmpegStdin.end();
-      return promise.then(() => {
+    },
+    end () {
+      this.close();
+      return exitResolve.then(() => {
         if (framesProcessed === 0) return Promise.reject(new Error('No frames processed'));
       });
     }
@@ -338,7 +374,7 @@ function buildMP4Args (opt = {}, isStream = false) {
     filter1,
     '-y',
     '-an',
-    '-preset', 'slow',
+    '-preset', 'veryfast',
     '-c:v', 'libx264',
     '-movflags', 'faststart',
     '-profile:v', 'high',
