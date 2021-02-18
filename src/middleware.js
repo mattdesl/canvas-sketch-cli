@@ -142,7 +142,6 @@ module.exports = (opt = {}) => {
 
   function handleCommit (req, res, next) {
     commit(Object.assign({}, opt, { logger, quiet })).then(result => {
-      res.end(JSON.stringify(result));
       respond(res, result);
     }).catch(err => {
       sendError(res, err);
