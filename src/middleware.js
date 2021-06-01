@@ -13,7 +13,11 @@ module.exports = (opt = {}) => {
   const output = opt.output;
   const streamOpt = opt.stream || {};
   const stream = streamOpt.format;
-  const bufferFrames = streamOpt.buffer;
+
+  // TODO: Buffering is not supported at the moment
+  // Something to do with the stream not calling 'end' events
+  // streamOpt.buffer;
+  const bufferFrames = true;
 
   if (stream && (stream !== 'gif' && stream !== 'mp4')) {
     throw new Error('Currently the --stream flag must be either gif, mp4, or --no-stream (default)');
