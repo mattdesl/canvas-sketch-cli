@@ -74,9 +74,10 @@ module.exports = (opt = {}) => {
     if (currentStream) {
       p = currentStream.end();
     }
-    currentStream = null;
-    currentStreamFilename = null;
-    return p.catch(err => {
+    return p.then(() => {
+      currentStream = null;
+      currentStreamFilename = null;
+    }).catch(err => {
       console.error(err);
     });
   }
