@@ -58,7 +58,7 @@
     "semver": "^5.5.0",
     "subarg": "^1.0.0",
     "tempy": "^0.3.0",
-    "terser": "^3.7.6",
+    "terser": "^4.8.1",
     "through2": "^2.0.3"
   },
   "devDependencies": {
