@@ -74,9 +74,10 @@ module.exports = (opt = {}) => {
     if (currentStream) {
       p = currentStream.end();
     }
-    currentStream = null;
-    currentStreamFilename = null;
-    return p.catch(err => {
+    return p.then(() => {
+      currentStream = null;
+      currentStreamFilename = null;
+    }).catch(err => {
       console.error(err);
     });
   }
@@ -175,7 +176,6 @@ module.exports = (opt = {}) => {
     let filename;
     let responded = false;
     let fileWritePromise = Promise.resolve();
-    const usingStream = Boolean(isStreaming && currentStream);
     busboy.once('file', (field, file, name, enc, mimeType) => {
       fileWritePromise = new Promise((resolve, reject) => {
         mkdirp(output, err => {
@@ -184,6 +184,7 @@ module.exports = (opt = {}) => {
           filename = path.basename(name);
           const filePath = path.join(output, filename);
           const curFileName = filename;
+          const usingStream = Boolean(isStreaming && currentStream);
 
           if (usingStream) {
             if (mimeType && mimeType !== currentStream.encoding) {
@@ -224,6 +225,7 @@ module.exports = (opt = {}) => {
       fileWritePromise
         .then(() => {
           if (responded) return;
+          const usingStream = Boolean(isStreaming && currentStream);
           responded = true;
           respond(res, {
             filename: filename,
