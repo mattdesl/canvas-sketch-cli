@@ -230,17 +230,19 @@ const start = async (args, overrides = {}) => {
         const terserOpt = {};
         terserOpt[path.basename(jsOutFile)] = code;
 
-        const terserResult = terser.minify(terserOpt, {
-          sourceMap: sourceMapOption && debug && sourceMapJSON ? {
-            content: sourceMapJSON,
-            url: path.basename(sourceMapFile)
-          } : false,
+        const sourceMap = sourceMapOption && debug && sourceMapJSON ? {
+          content: sourceMapJSON,
+          url: path.basename(sourceMapFile)
+        } : false;
+
+        const terserResult = await terser.minify(terserOpt, {
+          sourceMap,
           output: { comments: false },
           compress: {
             keep_infinity: true,
             pure_getters: true
           },
-          warnings: true,
+          // warnings: true,
           ecma: 5,
           toplevel: false,
           mangle: {
