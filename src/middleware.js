@@ -155,7 +155,7 @@ module.exports = (opt = {}) => {
 
   function createBusboy (req, res) {
     try {
-      return new Busboy({ headers: req.headers });
+      return Busboy({ headers: req.headers });
     } catch (err) {
       // Invalid headers in request
       res.statusCode = 500;
@@ -176,12 +176,13 @@ module.exports = (opt = {}) => {
     let filename;
     let responded = false;
     let fileWritePromise = Promise.resolve();
-    busboy.once('file', (field, file, name, enc, mimeType) => {
+    busboy.once('file', (fieldName, file, info) => {
+      const { mimeType } = info;
       fileWritePromise = new Promise((resolve, reject) => {
         mkdirp(output, err => {
           if (err) return reject(err);
 
-          filename = path.basename(name);
+          filename = path.basename(info.filename);
           const filePath = path.join(output, filename);
           const curFileName = filename;
           const usingStream = Boolean(isStreaming && currentStream);
@@ -221,7 +222,7 @@ module.exports = (opt = {}) => {
         sendError(res, err);
       });
     });
-    busboy.on('finish', () => {
+    busboy.on('close', () => {
       fileWritePromise
         .then(() => {
           if (responded) return;
