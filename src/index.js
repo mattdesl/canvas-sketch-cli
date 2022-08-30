@@ -457,7 +457,6 @@ const start = async (args, overrides = {}) => {
     const browserifyArgs = argv['--'] || [];
     delete argv['--'];
 
-    let resolveEntry;
     let entrySrc;
     if (argv.new) {
       const prefix = typeof argv.new === 'string' ? argv.new : undefined;
@@ -503,7 +502,6 @@ const start = async (args, overrides = {}) => {
           }
         }
 
-        resolveEntry = templateFile;
         try {
           entrySrc = fs.readFileSync(templateFile, 'utf-8');
         } catch (err) {
@@ -515,8 +513,6 @@ const start = async (args, overrides = {}) => {
       fs.writeFileSync(filepath, entrySrc);
       entry = filepath;
     }
-
-    if (!resolveEntry) resolveEntry = entry;
 
     if (!entry) {
       logger.error('No entry file specified!', `Example usage:\n    canvas-sketch src/index.js\n    canvas-sketch --new --template=regl`);
@@ -546,7 +542,7 @@ const start = async (args, overrides = {}) => {
     // Install dependencies from the template if needed
     if (argv.install !== false) {
       try {
-        await install(resolveEntry, { entrySrc, logger, cwd });
+        await install(entry, { entrySrc, logger, cwd });
       } catch (err) {
         console.error(err.toString());
       }
