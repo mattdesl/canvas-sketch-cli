@@ -42,7 +42,7 @@
     "install-if-needed": "^1.0.3",
     "is-builtin-module": "^2.0.0",
     "is-error": "^2.2.1",
-    "konan": "^1.2.1",
+    "konan": "^2.1.1",
     "loose-envify": "^1.4.0",
     "maxstache": "^1.0.7",
     "minimist": "^1.2.0",
