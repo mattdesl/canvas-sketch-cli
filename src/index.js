@@ -75,7 +75,7 @@ const start = async (args, overrides = {}) => {
     '--': true,
     default: {
       watching: true,
-      install: true,
+      install: false,
       client: true,
       template: 'default'
     }
@@ -540,7 +540,7 @@ const start = async (args, overrides = {}) => {
     }
 
     // Install dependencies from the template if needed
-    if (argv.install !== false) {
+    if (argv.install) { // no longer by default to minimize errors and vulnerabilities
       try {
         await install(entry, { entrySrc, logger, cwd });
       } catch (err) {

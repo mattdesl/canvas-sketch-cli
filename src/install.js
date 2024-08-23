@@ -1,5 +1,4 @@
 const { promisify } = require('util');
-const installIfNeeded = promisify(require('install-if-needed'));
 const { isCanvasSketchPackage, readPackage } = require('./util');
 const isBuiltin = require('is-builtin-module');
 const packageName = require('require-package-name');
@@ -136,6 +135,8 @@ You can re-install ${toInstall} to down-grade to a working version:
       opt.installer.emit('install-start', { entry, modules: filtered });
     }
     try {
+      const installIfNeededCB = require('install-if-needed')
+      const installIfNeeded = promisify(installIfNeededCB);
       await installIfNeeded(obj);
       if (opt.installer) {
         opt.installer.emit('install-end', { entry, modules: filtered });
