@@ -40,7 +40,7 @@ const testErrorForAutoInstall = (() => {
       console.warn(chalk.magenta(
         `
   ~~~~~~~ NOTE ~~~~~~~
-  canvas-sketch-cli@1.12 no longer auto-installs modules by default;
+  canvas-sketch-cli@1.14 no longer auto-installs modules by default;
   try passing --install flag to your command if you want this feature.
   ~~~~~~~~~~~~~~~~~~~~`
       ));
@@ -564,7 +564,12 @@ const start = async (args, overrides = {}) => {
     }
 
     // Install dependencies from the template if needed
-    if (argv.install) { // no longer by default to minimize errors and vulnerabilities
+    // Modified such that --new will trigger an auto-install (for better UX when dealing with canvas-sketch import)
+    // but without --new the auto install will not occur
+    // This leads to a rather awkward but at least somewhat working command series in Windows for the minute:
+    // npm install canvas-sketch && canvas-sketch sketch.js
+    const shouldInstall = argv.install || (argv.install !== false && argv.new);
+    if (shouldInstall) {
       try {
         await install(entry, { entrySrc, logger, cwd });
       } catch (err) {
