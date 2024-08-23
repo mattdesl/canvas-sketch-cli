@@ -31,23 +31,6 @@ const pluginGLSL = require('./plugins/plugin-glsl');
 
 const DEFAULT_GENERATED_FILENAME = '_generated.js';
 
-const testErrorForAutoInstall = (() => {
-  let hasDisplayed = false;
-  return (err) => {
-    if (hasDisplayed) return;
-    if (err.message && err.message.includes('Cannot find module')) {
-      hasDisplayed = true;
-      console.warn(chalk.magenta(
-        `
-  ~~~~~~~ NOTE ~~~~~~~
-  canvas-sketch-cli@1.14 no longer auto-installs modules by default;
-  try passing --install flag to your command if you want this feature.
-  ~~~~~~~~~~~~~~~~~~~~`
-      ));
-    }
-  };
-})();
-
 const bundleAsync = (bundler) => {
   return new Promise((resolve, reject) => {
     bundler.bundle((err, src) => {
@@ -227,7 +210,6 @@ const start = async (args, overrides = {}) => {
     try {
       buffer = await bundleAsync(bundler);
     } catch (err) {
-      testErrorForAutoInstall(err);
       throw err;
     }
     let code = buffer.toString();
@@ -412,8 +394,7 @@ const start = async (args, overrides = {}) => {
         hasError = false;
       });
 
-      app.on('bundle-error', (err) => {
-        testErrorForAutoInstall(err);
+      app.on('bundle-error', () => {
         hasError = true;
       });
     };
