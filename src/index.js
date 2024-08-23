@@ -31,6 +31,23 @@ const pluginGLSL = require('./plugins/plugin-glsl');
 
 const DEFAULT_GENERATED_FILENAME = '_generated.js';
 
+const testErrorForAutoInstall = (() => {
+  let hasDisplayed = false;
+  return (err) => {
+    if (hasDisplayed) return;
+    if (err.message && err.message.includes('Cannot find module')) {
+      hasDisplayed = true;
+      console.warn(chalk.magenta(
+        `
+  ~~~~~~~ NOTE ~~~~~~~
+  canvas-sketch-cli@1.12 no longer auto-installs modules by default;
+  try passing --install flag to your command if you want this feature.
+  ~~~~~~~~~~~~~~~~~~~~`
+      ));
+    }
+  };
+})();
+
 const bundleAsync = (bundler) => {
   return new Promise((resolve, reject) => {
     bundler.bundle((err, src) => {
@@ -206,7 +223,13 @@ const start = async (args, overrides = {}) => {
     await mkdirp(dir);
 
     // Now bundle up our code into a string
-    const buffer = await bundleAsync(bundler);
+    let buffer;
+    try {
+      buffer = await bundleAsync(bundler);
+    } catch (err) {
+      testErrorForAutoInstall(err);
+      throw err;
+    }
     let code = buffer.toString();
 
     const sourceMapFile = `${jsOutFile}.map`;
@@ -389,7 +412,8 @@ const start = async (args, overrides = {}) => {
         hasError = false;
       });
 
-      app.on('bundle-error', () => {
+      app.on('bundle-error', (err) => {
+        testErrorForAutoInstall(err);
         hasError = true;
       });
     };
