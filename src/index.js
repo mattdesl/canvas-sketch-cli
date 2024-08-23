@@ -92,7 +92,7 @@ const start = async (args, overrides = {}) => {
     '--': true,
     default: {
       watching: true,
-      install: false,
+      install: true,
       client: true,
       template: 'default'
     }
@@ -564,11 +564,11 @@ const start = async (args, overrides = {}) => {
     }
 
     // Install dependencies from the template if needed
-    // Modified such that --new will trigger an auto-install (for better UX when dealing with canvas-sketch import)
-    // but without --new the auto install will not occur
-    // This leads to a rather awkward but at least somewhat working command series in Windows for the minute:
-    // npm install canvas-sketch && canvas-sketch sketch.js
-    const shouldInstall = argv.install || (argv.install !== false && argv.new);
+    // Note: this was a regretful decision! A little difficult to remove entirely
+    // as one of the primary entrypoints is `canvas-sketch sketch.js --new` which requires
+    // installation of canvas-sketch itself. In future it would be good to get more granular;
+    // perhaps auto-installing canvas-sketch but no other libraries unless specified.
+    const shouldInstall = argv.install !== false;
     if (shouldInstall) {
       try {
         await install(entry, { entrySrc, logger, cwd });

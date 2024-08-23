@@ -120,7 +120,7 @@ You can re-install ${toInstall} to down-grade to a working version:
 
   // Only install if needed
   if (filtered.length > 0) {
-    const obj = { stdio: 'inherit', audit: false, fund: false, silent: true };
+    const obj = { stdio: 'inherit', shell: true, audit: false, fund: false, silent: true };
     obj[key] = filtered;
 
     if (logger) {
