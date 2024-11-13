@@ -5,10 +5,16 @@ const settings = {
 };
 
 const sketch = () => {
-  return ({ context, width, height }) => {
+  
+  /**
+   * @param {{context: CanvasRenderingContext2D}} 
+   */
+  const render = ({ context, width, height }) => {
     context.fillStyle = 'white';
     context.fillRect(0, 0, width, height);
   };
+  
+  return render;
 };
 
 canvasSketch(sketch, settings);
