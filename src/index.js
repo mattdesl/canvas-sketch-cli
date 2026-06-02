@@ -27,6 +27,7 @@ const { EventEmitter } = require('events');
 const pluginEnv = require('./plugins/plugin-env');
 const pluginResolve = require('./plugins/plugin-resolve');
 const pluginGLSL = require('./plugins/plugin-glsl');
+const transformESBuild = require('./plugins/transform-esbuild');
 // const transformInstaller = require('./plugins/transform-installer');
 
 const DEFAULT_GENERATED_FILENAME = '_generated.js';
@@ -586,6 +587,12 @@ const start = async (args, overrides = {}) => {
     });
 
     browserifyArgs.push(
+      // Handle modern dependencies published as ESM (e.g. `@texel/color`).
+      // This runs esbuild over node_modules only, converting import/export to
+      // CommonJS and lowering operators (?? and ?.) that browserify's parser
+      // can't read. Local source is left to esmify below. See the plugin for
+      // details on why this is scoped to node_modules.
+      '-g', transformESBuild(params),
       // Add in ESM support
       '-p', (bundler, opts) => {
         return esmify(bundler, Object.assign({}, opts, {
@@ -596,10 +603,12 @@ const start = async (args, overrides = {}) => {
           // The added benefit of tree-shaking ES Modules isn't even used here (no rollup/webpack)
           // so we will just discard it altogether for a cleaner developer & user experience.
           mainFields: ['browser', 'main'],
-          // This is a bit frustrating, as well. Babel-ifying the entire node_modules
-          // tree is extremely slow, and only fixes a few problematic modules
-          // that have decided to publish with ESM, which isn't even standard yet!
-          // So, we will only support ESM in local code for canvas-sketch.
+          // We let esmify handle *local* source only. Babel-ifying the entire
+          // node_modules tree here is extremely slow, and would also break the
+          // static-require analysis that glslify/brfs rely on. ESM dependencies
+          // inside node_modules are instead handled by the esbuild transform
+          // registered above, which is both faster and able to lower modern
+          // syntax that browserify's parser can't read.
           nodeModules: false,
           logFile: argv.logFile
         }));
